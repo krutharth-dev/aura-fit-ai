@@ -1,0 +1,128 @@
+[
+  {
+    "id": "program-profile",
+    "title": "Information needed for a personalised program",
+    "source": "AURA FIT training guide",
+    "content": "A responsible program should consider the user's main goal, experience level, available training days, session duration, equipment and any pain, injuries or exercise limitations before claiming to be personalised."
+  },
+  {
+    "id": "progression",
+    "title": "Double progression",
+    "source": "AURA FIT training guide",
+    "content": "Choose a rep range and begin with a load that leaves roughly two or three good repetitions in reserve. Add repetitions over time. When every working set reaches the top of the range with stable technique, add the smallest practical load and repeat."
+  },
+  {
+    "id": "effort",
+    "title": "Repetitions in reserve",
+    "source": "AURA FIT training guide",
+    "content": "Repetitions in reserve, or RIR, estimates how many technically sound repetitions remain at the end of a set. Most routine working sets can stop around one to three RIR; beginners often benefit from the more conservative end of that range."
+  },
+  {
+    "id": "warmup",
+    "title": "Effective warm-up",
+    "source": "AURA FIT training guide",
+    "content": "Use five to eight minutes of easy general movement if helpful, then perform two to four progressively heavier ramp-up sets for the first major lift. Warm-up sets prepare the movement without creating meaningful fatigue."
+  },
+  {
+    "id": "squat",
+    "title": "Squat technique",
+    "source": "AURA FIT exercise library",
+    "content": "Plant the whole foot, brace before descending, let knees and hips bend together, keep knees tracking with the toes and drive the floor away. Use the deepest range that stays controlled and comfortable. Common errors include heels lifting, knees collapsing inward, relaxing at the bottom and adding load faster than control improves."
+  },
+  {
+    "id": "bench",
+    "title": "Bench press technique",
+    "source": "AURA FIT exercise library",
+    "content": "Set the upper back firmly on the bench, plant the feet and stack wrists over forearms. Lower the bar under control toward the lower chest with elbows in a comfortable diagonal, then press up and slightly back. Use safeties or a competent spotter for challenging sets."
+  },
+  {
+    "id": "deadlift",
+    "title": "Deadlift technique",
+    "source": "AURA FIT exercise library",
+    "content": "Begin with the bar over mid-foot, hinge to grip it, bring the shins close, brace and remove slack before lifting. Push the floor away while keeping the bar close. Finish tall without leaning back and return the bar with a controlled hinge."
+  },
+  {
+    "id": "movement-patterns",
+    "title": "Balanced movement patterns",
+    "source": "AURA FIT programming guide",
+    "content": "Across a training week, include knee-dominant work, a hip hinge, horizontal and vertical pushing, horizontal and vertical pulling, plus trunk work. The exact exercise can change based on equipment, skill and comfort."
+  },
+  {
+    "id": "three-day",
+    "title": "Three-day full-body structure",
+    "source": "AURA FIT program templates",
+    "content": "A three-day full-body plan can alternate squat, hinge, push and pull emphasis across the week. It is efficient for beginners and intermediate lifters who want frequent practice without training on consecutive days."
+  },
+  {
+    "id": "four-day",
+    "title": "Four-day upper/lower structure",
+    "source": "AURA FIT program templates",
+    "content": "A four-day upper/lower split trains each major area twice weekly while keeping sessions focused. Upper days combine presses and pulls; lower days combine squat, hinge, single-leg, hamstring and calf work."
+  },
+  {
+    "id": "soreness",
+    "title": "Muscle soreness and readiness",
+    "source": "AURA FIT recovery guide",
+    "content": "Ordinary muscle soreness is usually diffuse and tender and may improve during a warm-up. If movement and performance return to normal, a reduced session may be reasonable. If performance remains clearly reduced, use another recovery day or train a different area."
+  },
+  {
+    "id": "pain-warning",
+    "title": "Pain warning signs",
+    "source": "AURA FIT safety guide",
+    "content": "Do not train through sharp or worsening pain, major swelling, instability or inability to bear weight. Pause the aggravating exercise and seek an appropriate professional assessment rather than asking an AI to diagnose the injury."
+  },
+  {
+    "id": "urgent-symptoms",
+    "title": "Urgent exercise symptoms",
+    "source": "AURA FIT safety guide",
+    "content": "Stop exercising and contact the local emergency service for chest pain, fainting during exercise, severe breathing difficulty, new weakness or numbness, or a major acute injury. Do not drive yourself if you may be seriously unwell."
+  },
+  {
+    "id": "recovery-foundations",
+    "title": "Recovery foundations",
+    "source": "AURA FIT recovery guide",
+    "content": "Consistent sleep, adequate energy and protein intake, hydration, and manageable weekly training volume support recovery. A deload or temporary volume reduction can help when performance and motivation decline across multiple sessions."
+  },
+  {
+    "id": "rest-periods",
+    "title": "Rest between sets",
+    "source": "AURA FIT gym fundamentals",
+    "content": "Rest roughly two to four minutes after heavy compound lifts, 90 to 150 seconds for moderate hypertrophy work, and 45 to 90 seconds for smaller isolation exercises. Use enough rest to repeat the target reps with stable technique."
+  },
+  {
+    "id": "sets-reps",
+    "title": "Sets and rep ranges",
+    "source": "AURA FIT gym fundamentals",
+    "content": "Strength-focused work often uses three to five sets of three to six reps, muscle-building compounds commonly use three to four sets of six to twelve reps, and isolation work commonly uses two to four sets of ten to twenty reps. Individual needs and recovery still matter."
+  },
+  {
+    "id": "failure-training",
+    "title": "Training to failure",
+    "source": "AURA FIT gym fundamentals",
+    "content": "Most compound sets can stop with one to three good repetitions in reserve. Training every set to failure is not required and can add fatigue. Occasional failure on a safe isolation exercise is optional when technique remains controlled."
+  },
+  {
+    "id": "exercise-order",
+    "title": "Exercise order",
+    "source": "AURA FIT gym fundamentals",
+    "content": "After warming up, place the highest-priority or most technically demanding lift first, then other compound movements, smaller isolation work, and finally core or conditioning."
+  },
+  {
+    "id": "training-frequency",
+    "title": "Training frequency",
+    "source": "AURA FIT gym fundamentals",
+    "content": "Many people can train each major muscle around twice per week. Beginners often use three full-body sessions, while upper-lower and push-pull-legs splits can distribute more weekly volume."
+  },
+  {
+    "id": "cardio-order",
+    "title": "Cardio and lifting order",
+    "source": "AURA FIT gym fundamentals",
+    "content": "When lifting performance is the priority, lift first and place moderate cardio afterward or in a separate session. When endurance is the priority, cardio may come first. Avoid hard cardio that meaningfully reduces recovery for demanding leg training."
+  },
+  {
+    "id": "exercise-substitution",
+    "title": "Exercise substitutions",
+    "source": "AURA FIT gym fundamentals",
+    "content": "Choose substitutions by movement pattern and target: replace knee-dominant work with another squat or lunge pattern, a hinge with another hip-dominant movement, and presses or pulls with the same direction of movement using available equipment and a comfortable range."
+  }
+]

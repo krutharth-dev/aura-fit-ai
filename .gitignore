@@ -1,0 +1,25 @@
+# dependencies and builds
+node_modules/
+dist/
+.next/
+.vinext/
+.wrangler/
+.sites-runtime/
+
+# private environment files
+.env
+.env.local
+.env.*.local
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+python_agent/.chroma/
+.pytest_cache/
+
+# editors and operating systems
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
