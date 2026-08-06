@@ -191,5 +191,5 @@ Computer Science and Engineering workshop, August 2026.
 
 ## Project team
 
-1. **Team member 1:** Name / USN / section to be added
-2. **Team member 2:** Name / USN / section to be added
+1. **Team member 1:** Kishan B Gowda / 4MC24CS097 
+2. **Team member 2:** Krutharth Prashanth Gowda / 4MC24CS099 
