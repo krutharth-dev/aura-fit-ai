@@ -237,12 +237,25 @@ function mostRecentBodyPart(history: ChatHistoryItem[]) {
   return null;
 }
 
+function asksToChooseBodyPart(history: ChatHistoryItem[]) {
+  return history
+    .slice(-3)
+    .some((item) => item.role === "assistant" && /which [^?]{0,50}(?:would you like to|do you want to) train/i.test(item.content));
+}
+
+function startsBodyPartWorkout(message: string) {
+  return /\b(?:train|training|workout for)\b[^.!?]{0,30}\b(?:a|some|any|one) (?:muscle group|body part|area)\b/i.test(message)
+    || /\b(?:body part|muscle group) workout\b/i.test(message);
+}
+
 export function isBodyPartWorkoutTurn(message: string, history: ChatHistoryItem[]) {
   const earlier = priorHistory(history, message);
   const bodyPart = extractBodyPart(message);
   const asksForWorkout = /\b(?:workout|train|training|session|routine|exercises?|variations?|movements?|today)\b/i.test(message);
   const formQuestion = /\b(?:form|technique|how (?:do|to)|pain|injury)\b/i.test(message);
+  if (startsBodyPartWorkout(message)) return true;
   if (bodyPart && asksForWorkout && !formQuestion) return true;
+  if (bodyPart && asksToChooseBodyPart(earlier)) return true;
 
   const count = extractExerciseCount(message);
   const assistantAskedForCount = earlier
@@ -254,11 +267,14 @@ export function isBodyPartWorkoutTurn(message: string, history: ChatHistoryItem[
 export function bodyPartWorkoutAnswer(message: string, history: ChatHistoryItem[]) {
   const earlier = priorHistory(history, message);
   const bodyPart = extractBodyPart(message) ?? mostRecentBodyPart(earlier);
-  if (!bodyPart) return null;
+  if (!bodyPart) {
+    if (!startsBodyPartWorkout(message)) return null;
+    return "Which body part or muscle group would you like to train today? For example: chest, back, shoulders, biceps, triceps, arms, quads, hamstrings, glutes, legs, calves, core, forearms, or full body.";
+  }
 
   const count = extractExerciseCount(message);
   if (!count) {
-    return `Great—${bodyPart} day. How many exercise variations would you like? Choose a number from 3 to 8 (for example, “six”).`;
+    return `Great—${bodyPart} day. How many exercises would you like in this session? Choose a number from 3 to 8 (for example, “six”).`;
   }
   if (count < 1 || count > 10) {
     return "Choose between 1 and 10 exercises so the session stays practical.";

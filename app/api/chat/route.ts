@@ -270,7 +270,7 @@ export async function POST(request: Request) {
         answer: bodyPartAnswer,
         route: "program",
         source: "AURA FIT body-part workout engine · Session memory",
-        trace: ["Assessed training request", "Matched body-part workout flow", "Read this conversation’s recent turns", "Built the requested exercise count"],
+        trace: ["Assessed training request", "Matched guided body-part workout flow", "Read this conversation’s recent turns", "Advanced the workout one step"],
       });
     }
 

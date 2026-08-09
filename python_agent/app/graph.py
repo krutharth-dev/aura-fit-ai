@@ -134,7 +134,7 @@ class AuraFitAgent:
             return {
                 "answer": body_part_answer,
                 "source": "AURA FIT body-part workout engine · Session memory",
-                "trace": state.get("trace", []) + ["Remembered body-part request", "Built requested exercise list"],
+                "trace": state.get("trace", []) + ["Matched guided body-part workout flow", "Advanced the workout one step"],
             }
 
         context, source = self._context_for(state["question"])

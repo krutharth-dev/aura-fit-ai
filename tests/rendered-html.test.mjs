@@ -50,6 +50,7 @@ test("renders professional metadata, team details and security headers", async (
   assert.match(html, /site\.webmanifest/);
   assert.match(html, /Sign in \/ Sign up/);
   assert.match(html, /CHOOSE A COACHING WORKFLOW/);
+  assert.match(html, /I want to train a body part today/);
 });
 
 test("renders an account-synced workspace from trusted ChatGPT identity headers", async () => {
@@ -94,14 +95,18 @@ test("requests missing profile data and refuses unsafe limitation guessing", asy
   assert.ok(limitation.data.trace.some((step) => step.includes("Stopped")));
 });
 
-test("preserves multi-turn body-part memory and exposes traces", async () => {
-  const firstPrompt = "I want to train back today.";
+test("guides body-part workouts one question at a time without defaulting to back", async () => {
+  const firstPrompt = "I want to train a body part today.";
   const first = await chat(firstPrompt);
-  const second = await chat("six", [{ role: "user", content: firstPrompt }, { role: "assistant", content: first.data.answer }, { role: "user", content: "six" }]);
-  assert.match(first.data.answer, /How many exercise variations/);
-  assert.match(second.data.answer, /BACK WORKOUT — 6 EXERCISES/);
-  assert.equal((second.data.answer.match(/^\d+\./gm) ?? []).length, 6);
-  assert.ok(second.data.trace.length >= 4);
+  const secondHistory = [{ role: "user", content: firstPrompt }, { role: "assistant", content: first.data.answer }, { role: "user", content: "chest" }];
+  const second = await chat("chest", secondHistory);
+  const third = await chat("five", [...secondHistory, { role: "assistant", content: second.data.answer }, { role: "user", content: "five" }]);
+  assert.match(first.data.answer, /Which body part or muscle group/);
+  assert.doesNotMatch(first.data.answer, /BACK WORKOUT/);
+  assert.match(second.data.answer, /Great—chest day\. How many exercises/);
+  assert.match(third.data.answer, /CHEST WORKOUT — 5 EXERCISES/);
+  assert.equal((third.data.answer.match(/^\d+\./gm) ?? []).length, 5);
+  assert.ok(third.data.trace.length >= 4);
 });
 
 test("keeps calculator and urgent safety behavior deterministic", async () => {

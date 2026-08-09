@@ -61,21 +61,30 @@ class AuraFitAgentTests(unittest.TestCase):
         mixed = self.agent.invoke("I have chest pain, but how long should I rest between sets?", thread_id="test-safety-mixed")
         self.assertEqual(mixed["route"], "recovery")
 
-    def test_body_part_workout_remembers_the_previous_turn(self) -> None:
-        request = "I want to train back today"
+    def test_body_part_workout_is_guided_without_a_default_muscle(self) -> None:
+        request = "I want to train a body part today"
         first = self.agent.invoke(request, thread_id="test-body-part-question")
         self.assertEqual(first["route"], "program")
-        self.assertIn("how many", first["answer"].lower())
+        self.assertIn("which body part", first["answer"].lower())
 
-        history = [
+        body_part_history = [
             {"role": "user", "content": request},
             {"role": "assistant", "content": first["answer"]},
-            {"role": "user", "content": "six"},
+            {"role": "user", "content": "chest"},
         ]
-        second = self.agent.invoke("six", history=history, thread_id="test-body-part-answer")
+        second = self.agent.invoke("chest", history=body_part_history, thread_id="test-body-part-count-question")
         self.assertEqual(second["route"], "program")
-        self.assertIn("BACK WORKOUT — 6 EXERCISES", second["answer"])
-        self.assertEqual(len(re.findall(r"(?m)^\d+\.", second["answer"])), 6)
+        self.assertIn("how many exercises", second["answer"].lower())
+
+        count_history = body_part_history + [
+            {"role": "assistant", "content": second["answer"]},
+            {"role": "user", "content": "five"},
+        ]
+        third = self.agent.invoke("five", history=count_history, thread_id="test-body-part-answer")
+        self.assertEqual(third["route"], "program")
+        self.assertIn("CHEST WORKOUT — 5 EXERCISES", third["answer"])
+        self.assertNotIn("BACK WORKOUT", third["answer"])
+        self.assertEqual(len(re.findall(r"(?m)^\d+\.", third["answer"])), 5)
 
     def test_every_supported_body_part_generates_requested_count(self) -> None:
         for body_part in SUPPORTED_BODY_PARTS:

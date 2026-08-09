@@ -23,7 +23,7 @@ type ConversationSummary = {
 
 const starterPrompts = [
   { label: "Build a workout plan", prompt: "Create a 4-day muscle-building plan for an intermediate lifter with full gym access, 60-minute sessions and no limitations.", icon: "01", category: "PROGRAM" },
-  { label: "Train a body part", prompt: "I want to train back today.", icon: "02", category: "WORKOUT" },
+  { label: "Train a body part", prompt: "I want to train a body part today.", icon: "02", category: "WORKOUT" },
   { label: "Improve my form", prompt: "Explain deadlift form with setup, execution, common mistakes and an easier regression.", icon: "03", category: "TECHNIQUE" },
   { label: "Plan progression", prompt: "How should I progress my main lifts when I reach the top of my rep range?", icon: "04", category: "PROGRESSION" },
   { label: "Calculate strength", prompt: "Estimate my 1RM from 100 kg x 5 reps.", icon: "05", category: "CALCULATOR" },

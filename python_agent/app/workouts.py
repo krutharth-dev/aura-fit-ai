@@ -231,12 +231,31 @@ def _recent_body_part(history: list[dict[str, str]]) -> str | None:
     return None
 
 
+def _asked_to_choose_body_part(history: list[dict[str, str]]) -> bool:
+    return any(
+        item.get("role") == "assistant"
+        and re.search(r"which [^?]{0,50}(?:would you like to|do you want to) train", item.get("content", ""), re.I)
+        for item in history[-3:]
+    )
+
+
+def _starts_body_part_workout(question: str) -> bool:
+    return bool(
+        re.search(r"\b(?:train|training|workout for)\b[^.!?]{0,30}\b(?:a|some|any|one) (?:muscle group|body part|area)\b", question, re.I)
+        or re.search(r"\b(?:body part|muscle group) workout\b", question, re.I)
+    )
+
+
 def is_body_part_workout_turn(question: str, history: list[dict[str, str]] | None = None) -> bool:
     earlier = _prior_history(history or [], question)
     body_part = extract_body_part(question)
     asks_for_workout = bool(re.search(r"\b(?:workout|train|training|session|routine|exercises?|variations?|movements?|today)\b", question, re.I))
     form_question = bool(re.search(r"\b(?:form|technique|how (?:do|to)|pain|injury)\b", question, re.I))
+    if _starts_body_part_workout(question):
+        return True
     if body_part and asks_for_workout and not form_question:
+        return True
+    if body_part and _asked_to_choose_body_part(earlier):
         return True
     count = extract_exercise_count(question)
     asked_for_count = any(
@@ -251,10 +270,15 @@ def body_part_workout_answer(question: str, history: list[dict[str, str]] | None
     earlier = _prior_history(history or [], question)
     body_part = extract_body_part(question) or _recent_body_part(earlier)
     if not body_part:
-        return None
+        if not _starts_body_part_workout(question):
+            return None
+        return (
+            "Which body part or muscle group would you like to train today? For example: chest, back, shoulders, "
+            "biceps, triceps, arms, quads, hamstrings, glutes, legs, calves, core, forearms, or full body."
+        )
     count = extract_exercise_count(question)
     if not count:
-        return f"Great—{body_part} day. How many exercise variations would you like? Choose a number from 3 to 8 (for example, ‘six’)."
+        return f"Great—{body_part} day. How many exercises would you like in this session? Choose a number from 3 to 8 (for example, ‘six’)."
     exercises = WORKOUTS[body_part][:count]
     lines = [f"{index}. {exercise['name']} — {exercise['prescription']}" for index, exercise in enumerate(exercises, 1)]
     return (
