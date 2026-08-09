@@ -4,6 +4,19 @@ import {
   isBodyPartWorkoutTurn,
   type ChatHistoryItem,
 } from "./workouts";
+import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
+import { adoptGuestConversations, historyDatabase, historyIdentity, historyJson, saveExchange } from "../../../db/history";
+
+type ChatRequest = { message?: unknown; history?: unknown; thread_id?: unknown; conversation_id?: unknown };
+type CoachPayload = { answer: string; route: string; source: string; trace?: string[] };
+
+const MAX_REQUEST_BYTES = 48_000;
+const MAX_MESSAGE_LENGTH = 2_000;
+const MAX_HISTORY_LENGTH = 10;
+const MAX_HISTORY_ITEM_LENGTH = 4_000;
+const RATE_WINDOW_MS = 60_000;
+const RATE_LIMIT = 30;
+const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
 const FITNESS_CONTEXT = `
 AURA FIT is an educational AI training coach. It helps users build gym programs,
@@ -110,32 +123,6 @@ function trainingCalculation(message: string) {
   return arithmetic ? `Training calculation:\n\n${arithmetic}` : null;
 }
 
-function missingPlanDetails(text: string) {
-  const hasDays = /[2-6][ -]?days?|twice|three|four|five|six/.test(text);
-  const hasGoal = /muscle|hypertrophy|strength|fat loss|fitness|power|endurance/.test(text);
-  const hasExperience = /beginner|novice|intermediate|advanced|new to/.test(text);
-  const hasEquipment = /gym|home|dumbbell|barbell|machine|bodyweight|equipment/.test(text);
-  return !(hasDays && hasGoal && hasExperience && hasEquipment);
-}
-
-function programAnswer(message: string) {
-  const text = message.toLowerCase();
-  if (missingPlanDetails(text)) {
-    return "I can build that properly. Send me these six details in one message:\n\n1. Main goal — muscle, strength, fat loss or general fitness\n2. Experience — beginner, intermediate or advanced\n3. Training days per week\n4. Minutes available per session\n5. Equipment — full gym, home gym or bodyweight\n6. Any pain, injuries or exercise limitations\n\nExample: “Muscle gain, intermediate, 4 days, 60 minutes, full gym, no limitations.”";
-  }
-
-  const days = Number(text.match(/([2-6])[ -]?days?/)?.[1] ?? (text.includes("four") ? 4 : text.includes("three") ? 3 : 4));
-  if (days === 3) {
-    return "Your 3-day full-body program\n\nDAY 1 — Squat 3×5–8 · Bench press 3×6–10 · Chest-supported row 3×8–12 · Romanian deadlift 2×8–10 · Cable lateral raise 2×12–20\n\nDAY 2 — Deadlift 2×4–6 · Overhead press 3×6–10 · Lat pulldown 3×8–12 · Split squat 3×8–12/leg · Cable curl + triceps pressdown 2×10–15\n\nDAY 3 — Leg press 3×8–12 · Incline dumbbell press 3×8–12 · Seated cable row 3×8–12 · Leg curl 3×10–15 · Calf raise 3×10–15\n\nStart around 2–3 reps in reserve. When every set reaches the top of its range with clean technique, add the smallest practical load next time.";
-  }
-
-  if (days >= 5) {
-    return "Your 5-day hypertrophy split\n\nDAY 1 PUSH — Bench press 3×6–8 · Incline dumbbell press 3×8–12 · Cable fly 2×12–15 · Lateral raise 3×12–20 · Triceps pressdown 3×10–15\n\nDAY 2 PULL — Romanian deadlift 3×6–10 · Pull-up/pulldown 3×6–10 · Chest-supported row 3×8–12 · Rear-delt fly 3×12–20 · Curl 3×10–15\n\nDAY 3 LEGS — Squat 3×5–8 · Leg press 3×10–15 · Leg curl 3×10–15 · Calf raise 4×8–15\n\nDAY 4 UPPER — Overhead press 3×6–10 · Cable row 3×8–12 · Incline press 3×8–12 · Pulldown 3×8–12 · Arms 2×10–15 each\n\nDAY 5 LOWER — Deadlift 2×3–5 · Front squat 3×6–10 · Split squat 3×8–12/leg · Leg curl 2×10–15 · Calves 3×10–15\n\nKeep most work at 1–3 reps in reserve and schedule a rest day whenever performance or recovery starts falling.";
-  }
-
-  return "Your 4-day upper/lower program\n\nDAY 1 UPPER — Bench press 3×6–8 · Chest-supported row 3×8–12 · Incline dumbbell press 3×8–12 · Lat pulldown 3×8–12 · Lateral raise 3×12–20 · Triceps pressdown 2×10–15\n\nDAY 2 LOWER — Back squat 3×5–8 · Romanian deadlift 3×6–10 · Leg press 3×10–15 · Leg curl 3×10–15 · Calf raise 3×10–15\n\nDAY 3 UPPER — Overhead press 3×6–10 · Pull-up/pulldown 3×6–10 · Cable row 3×8–12 · Machine chest press 3×8–12 · Rear-delt fly 3×12–20 · Curl 2×10–15\n\nDAY 4 LOWER — Deadlift 2×3–5 · Front squat 3×6–10 · Split squat 3×8–12/leg · Leg curl 2×10–15 · Calf raise 3×10–15\n\nUse 5–8 minutes of general warm-up plus 2–4 ramp-up sets for the first lift. Start with 2–3 reps in reserve; add reps within the range, then add a small load.";
-}
-
 function exerciseAnswer(message: string) {
   const text = message.toLowerCase();
   if (text.includes("squat")) {
@@ -165,40 +152,135 @@ function demoAnswer(message: string, route: string) {
   if (route === "calculator") {
     return trainingCalculation(message) ?? "For a 1RM estimate, use a format like “100 kg × 5 reps”. I can also handle ordinary arithmetic such as “20 * 2.5”.";
   }
-  if (route === "program") return programAnswer(message);
+  if (route === "program") return deterministicProgramAnswer(message);
   if (route === "exercise") return exerciseAnswer(message);
   if (route === "recovery") return recoveryAnswer(message);
   return "I can help you build a complete program, understand an exercise, plan progression, estimate a 1RM, or think through recovery. For the best starting point, tell me your goal, experience, training days, session length, equipment and any limitations.";
 }
 
+function responseTrace(route: string, finalStep: string) {
+  return ["Assessed training request", `Selected ${route} route`, finalStep];
+}
+
+function sanitizeHistory(value: unknown): ChatHistoryItem[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is ChatHistoryItem => {
+      if (!item || typeof item !== "object") return false;
+      const candidate = item as { role?: unknown; content?: unknown };
+      return (candidate.role === "user" || candidate.role === "assistant")
+        && typeof candidate.content === "string" && candidate.content.trim().length > 0;
+    })
+    .map((item) => ({ role: item.role, content: item.content.slice(0, MAX_HISTORY_ITEM_LENGTH) }))
+    .slice(-MAX_HISTORY_LENGTH);
+}
+
+function requestThreadId(value: unknown) {
+  return typeof value === "string" && /^[a-zA-Z0-9_-]{8,100}$/.test(value)
+    ? value : `aura-${crypto.randomUUID()}`;
+}
+
+function isRateLimited(request: Request) {
+  const now = Date.now();
+  const client = request.headers.get("cf-connecting-ip")
+    ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
+  const current = requestBuckets.get(client);
+  if (!current || current.resetAt <= now) {
+    requestBuckets.set(client, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return false;
+  }
+  current.count += 1;
+  if (requestBuckets.size > 500) {
+    for (const [key, bucket] of requestBuckets) if (bucket.resetAt <= now) requestBuckets.delete(key);
+  }
+  return current.count > RATE_LIMIT;
+}
+
+function isSafetyCritical(message: string) {
+  return /chest pain|faint|severe.*breath|new.*numb|new.*weak|major.*injur|sharp|worsening|swelling|cannot bear|can.t bear/i.test(message);
+}
+
+async function boundedFetch(input: string, init: RequestInit, timeoutMs = 12_000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as { message?: string; history?: ChatHistoryItem[] };
-    const message = body.message?.trim();
+    if (isRateLimited(request)) {
+      return Response.json({ error: "Too many requests. Please wait a minute and try again." }, { status: 429, headers: { "Retry-After": "60" } });
+    }
+    const rawBody = await request.text();
+    if (rawBody.length > MAX_REQUEST_BYTES) return Response.json({ error: "Request is too large" }, { status: 413 });
+    let body: ChatRequest;
+    try {
+      body = JSON.parse(rawBody) as ChatRequest;
+    } catch {
+      return Response.json({ error: "Request must contain valid JSON" }, { status: 400 });
+    }
+    const message = typeof body.message === "string" ? body.message.trim() : "";
     if (!message) return Response.json({ error: "Message is required" }, { status: 400 });
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return Response.json({ error: `Message must be ${MAX_MESSAGE_LENGTH.toLocaleString("en-US")} characters or fewer` }, { status: 400 });
+    }
 
-    const suppliedHistory = (body.history ?? [])
-      .filter((item) => item.role === "user" || item.role === "assistant")
-      .slice(-8);
+    const suppliedHistory = sanitizeHistory(body.history);
     const lastHistoryItem = suppliedHistory.at(-1);
     const history = lastHistoryItem?.role === "user" && lastHistoryItem.content.trim() === message
       ? suppliedHistory
-      : [...suppliedHistory, { role: "user" as const, content: message }].slice(-8);
+      : [...suppliedHistory, { role: "user" as const, content: message }].slice(-MAX_HISTORY_LENGTH);
+    const threadId = requestThreadId(body.thread_id);
+    const conversationId = typeof body.conversation_id === "string" ? body.conversation_id : null;
+    if (conversationId && !/^chat_[a-f0-9-]{36}$/.test(conversationId)) {
+      return Response.json({ error: "Invalid conversation" }, { status: 400 });
+    }
+    const identity = conversationId ? await historyIdentity(request) : null;
+    const persistenceDb = conversationId ? await historyDatabase() : null;
+    if (conversationId && !persistenceDb) {
+      return identity ? historyJson({ error: "Conversation storage is unavailable" }, identity, { status: 503 }) : Response.json({ error: "Conversation storage is unavailable" }, { status: 503 });
+    }
+    if (conversationId && identity && persistenceDb) await adoptGuestConversations(persistenceDb, identity);
+    const respond = async (payload: CoachPayload) => {
+      if (!conversationId || !identity || !persistenceDb) return Response.json(payload);
+      let persisted = false;
+      try {
+        persisted = await saveExchange(persistenceDb, identity.ownerId, conversationId, message, {
+          content: payload.answer, route: payload.route, source: payload.source, trace: payload.trace,
+        });
+      } catch {
+        persisted = false;
+      }
+      return historyJson({ ...payload, persisted }, identity);
+    };
 
-    if (isBodyPartWorkoutTurn(message, history)) {
-      return Response.json({
-        answer: bodyPartWorkoutAnswer(message, history),
+    if (isSafetyCritical(message)) {
+      return respond({ answer: recoveryAnswer(message), route: "recovery", source: "AURA FIT safety guardrail", trace: responseTrace("recovery", "Applied the safety escalation policy") });
+    }
+
+    const bodyPartAnswer = isBodyPartWorkoutTurn(message, history)
+      ? bodyPartWorkoutAnswer(message, history)
+      : null;
+    if (bodyPartAnswer) {
+      return respond({
+        answer: bodyPartAnswer,
         route: "program",
         source: "AURA FIT body-part workout engine · Session memory",
+        trace: ["Assessed training request", "Matched body-part workout flow", "Read this conversation’s recent turns", "Built the requested exercise count"],
       });
     }
 
     const gymAnswer = commonGymAnswer(message);
     if (gymAnswer) {
-      return Response.json({
+      return respond({
         answer: gymAnswer,
         route: "general",
         source: "AURA FIT gym fundamentals library",
+        trace: responseTrace("general", "Matched verified gym fundamentals"),
       });
     }
 
@@ -208,53 +290,60 @@ export async function POST(request: Request) {
 
     if (route === "calculator") {
       const answer = trainingCalculation(message);
-      if (answer) return Response.json({ answer, route, source: "Deterministic training calculator" });
+      if (answer) return respond({ answer, route, source: "Deterministic training calculator", trace: responseTrace(route, "Executed repeatable training calculation") });
     }
 
     if (agentBackendUrl) {
       try {
-        const agentResponse = await fetch(`${agentBackendUrl.replace(/\/$/, "")}/chat`, {
+        const agentResponse = await boundedFetch(`${agentBackendUrl.replace(/\/$/, "")}/chat`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             message,
             history,
-            thread_id: "aura-fit-web-session",
+            thread_id: threadId,
           }),
         });
-        if (agentResponse.ok) return Response.json(await agentResponse.json());
+        if (agentResponse.ok) return respond(await agentResponse.json() as CoachPayload);
       } catch {
         // Continue to direct Groq or the deterministic demo-safe route.
       }
     }
 
     if (!apiKey) {
-      return Response.json({
+      return respond({
         answer: demoAnswer(message, route),
         route,
         source: route === "exercise" ? "Local exercise library · Demo-safe mode" : "AURA FIT coach engine · Demo-safe mode",
+        trace: route === "program" ? ["Assessed training request", ...programTrace(message), "Returned deterministic demo-safe plan"] : responseTrace(route, "Used deterministic demo-safe coaching"),
       });
     }
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const localProgram = route === "program" ? deterministicProgramAnswer(message) : null;
+    if (localProgram && (/^I can personalise/.test(localProgram) || /^I won’t guess/.test(localProgram))) {
+      return respond({ answer: localProgram, route, source: "AURA FIT program profile guard", trace: ["Assessed training request", ...programTrace(message)] });
+    }
+
+    const response = await boundedFetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         model: process.env.GROQ_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
         temperature: 0.3,
         max_completion_tokens: 1000,
-        messages: [{ role: "system", content: SYSTEM_PROMPT }, ...history],
+        messages: [{ role: "system", content: route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold exactly; do not change its day count, equipment or session length:\n${localProgram}` : SYSTEM_PROMPT }, ...history],
       }),
     });
 
     if (!response.ok) {
-      return Response.json({ answer: demoAnswer(message, route), route, source: "AURA FIT coach engine · API fallback" });
+      return respond({ answer: demoAnswer(message, route), route, source: "AURA FIT coach engine · API fallback", trace: responseTrace(route, "Used local fallback after upstream error") });
     }
     const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    return Response.json({
+    return respond({
       answer: data.choices?.[0]?.message?.content ?? demoAnswer(message, route),
       route,
       source: route === "exercise" ? "Groq · Exercise context" : "Groq · Fitness coach route",
+      trace: responseTrace(route, "Generated a live grounded response"),
     });
   } catch {
     return Response.json({ error: "Unable to process this request" }, { status: 500 });

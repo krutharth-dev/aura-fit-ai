@@ -9,6 +9,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.graph import AuraFitAgent, estimate_one_rep_max, safe_math
+from app.programs import build_program
 from app.workouts import SUPPORTED_BODY_PARTS
 
 
@@ -35,6 +36,18 @@ class AuraFitAgentTests(unittest.TestCase):
         self.assertIn("goal", result["answer"].lower())
         self.assertIn("equipment", result["answer"].lower())
 
+    def test_program_honours_requested_day_count(self) -> None:
+        for days in range(2, 7):
+            answer = build_program(f"Create a {days}-day muscle plan for an intermediate lifter, 60 minutes, full gym, no limitations")
+            self.assertEqual(len(re.findall(r"(?m)^DAY \d+ —", answer)), days)
+
+    def test_program_respects_home_equipment_and_limitations(self) -> None:
+        home = build_program("Create a 3-day fitness plan for a beginner, 35 minutes, dumbbells at home, no injuries")
+        unsafe = build_program("Create a 4-day muscle plan for an intermediate lifter, 60 minutes, full gym, after recent surgery")
+        self.assertIn("Goblet squat", home)
+        self.assertNotIn("Back squat", home)
+        self.assertIn("won't guess", unsafe)
+
     def test_offline_exercise_answer(self) -> None:
         result = self.agent.invoke("Explain squat form", thread_id="test-form")
         self.assertEqual(result["route"], "exercise")
@@ -45,6 +58,8 @@ class AuraFitAgentTests(unittest.TestCase):
         result = self.agent.invoke("I fainted and have chest pain during training", thread_id="test-safety")
         self.assertEqual(result["route"], "recovery")
         self.assertIn("emergency", result["answer"].lower())
+        mixed = self.agent.invoke("I have chest pain, but how long should I rest between sets?", thread_id="test-safety-mixed")
+        self.assertEqual(mixed["route"], "recovery")
 
     def test_body_part_workout_remembers_the_previous_turn(self) -> None:
         request = "I want to train back today"

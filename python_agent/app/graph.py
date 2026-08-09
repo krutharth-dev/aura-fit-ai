@@ -7,6 +7,7 @@ from typing import Any, Literal, TypedDict
 
 from .knowledge import FitnessKnowledge
 from .llm import GroqLLM
+from .programs import build_program
 from .workouts import body_part_workout_answer, common_gym_answer, is_body_part_workout_turn
 
 
@@ -97,6 +98,8 @@ class AuraFitAgent:
     @staticmethod
     def choose_route(question: str) -> Literal["program", "exercise", "recovery", "calculator", "general"]:
         text = question.lower()
+        if re.search(r"chest pain|faint|severe.*breath|new.*numb|new.*weak|major.*injur|sharp|worsening|swelling|cannot bear|can.t bear", text):
+            return "recovery"
         if re.search(r"1\s*rm|one.rep.max|calculate|estimate|max from|\d+\s*(?:kg|lb|lbs)?\s*(?:x|for)\s*\d+|plate math|percentage", text):
             return "calculator"
         if re.search(r"plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program", text):
@@ -112,7 +115,9 @@ class AuraFitAgent:
         return "general"
 
     def _router_node(self, state: AgentState) -> AgentState:
-        if is_body_part_workout_turn(state["question"], state.get("history")):
+        if re.search(r"chest pain|faint|severe.*breath|new.*numb|new.*weak|major.*injur|sharp|worsening|swelling|cannot bear|can.t bear", state["question"], re.I):
+            route = "recovery"
+        elif is_body_part_workout_turn(state["question"], state.get("history")):
             route = "program"
         else:
             route = self.choose_route(state["question"])
@@ -133,44 +138,21 @@ class AuraFitAgent:
             }
 
         context, source = self._context_for(state["question"])
-        text = state["question"].lower()
-        required = {
-            "goal": bool(re.search(r"muscle|hypertrophy|strength|fat loss|fitness|power|endurance", text)),
-            "experience": bool(re.search(r"beginner|novice|intermediate|advanced|new to", text)),
-            "days": bool(re.search(r"[2-6][ -]?days?|twice|three|four|five|six", text)),
-            "equipment": bool(re.search(r"gym|home|dumbbell|barbell|machine|bodyweight|equipment", text)),
-        }
-        if not all(required.values()):
-            answer = (
-                "I can build that properly. Send me: goal, experience level, training days per week, "
-                "minutes per session, equipment, and any pain or limitations.\n\n"
-                "Example: “Muscle gain, intermediate, 4 days, 60 minutes, full gym, no limitations.”"
-            )
-        else:
+        scaffold = build_program(state["question"])
+        if scaffold.startswith("YOUR ") and self.llm.available:
             system = (
-                "You are AURA FIT, an educational AI training coach. Build a practical weekly program using the "
-                "provided fitness context. State days, exercises, sets, rep ranges, effort target and progression. "
-                "Do not diagnose or prescribe around injury. CONTEXT:\n" + context
+                "You are AURA FIT. Improve the clarity of the validated program scaffold without changing its day "
+                "count, equipment constraints, session length, exercises or safety boundaries. CONTEXT:\n" + context
+                + "\n\nVALIDATED SCAFFOLD:\n" + scaffold
             )
-            answer = self.llm.complete(system, state["question"], state.get("history"))
-            if not answer:
-                answer = (
-                    "Your 4-day upper/lower program\n\n"
-                    "DAY 1 UPPER — Bench press 3×6–8 · Chest-supported row 3×8–12 · Incline dumbbell press "
-                    "3×8–12 · Lat pulldown 3×8–12 · Lateral raise 3×12–20\n\n"
-                    "DAY 2 LOWER — Back squat 3×5–8 · Romanian deadlift 3×6–10 · Leg press 3×10–15 · "
-                    "Leg curl 3×10–15 · Calf raise 3×10–15\n\n"
-                    "DAY 3 UPPER — Overhead press 3×6–10 · Pull-up/pulldown 3×6–10 · Cable row 3×8–12 · "
-                    "Machine chest press 3×8–12 · Curl + triceps pressdown 2×10–15\n\n"
-                    "DAY 4 LOWER — Deadlift 2×3–5 · Front squat 3×6–10 · Split squat 3×8–12/leg · "
-                    "Leg curl 2×10–15 · Calf raise 3×10–15\n\n"
-                    "Start around 2–3 reps in reserve. Reach the top of the rep range with clean technique, then add the smallest practical load."
-                )
+            answer = self.llm.complete(system, state["question"], state.get("history")) or scaffold
+        else:
+            answer = scaffold
         return {
             "answer": answer,
             "source": source,
             "context": context,
-            "trace": state.get("trace", []) + ["Read training profile details", "Built program response"],
+            "trace": state.get("trace", []) + ["Validated training profile", "Built constraint-safe program scaffold"],
         }
 
     def _exercise_node(self, state: AgentState) -> AgentState:

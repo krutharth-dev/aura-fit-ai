@@ -21,8 +21,10 @@ class GroqLLM:
             return None
 
         messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
-        messages.extend((history or [])[-8:])
-        messages.append({"role": "user", "content": question})
+        recent = (history or [])[-8:]
+        messages.extend(recent)
+        if not recent or recent[-1].get("role") != "user" or recent[-1].get("content", "").strip() != question.strip():
+            messages.append({"role": "user", "content": question})
         payload = json.dumps({
             "model": self.model,
             "messages": messages,
@@ -42,5 +44,5 @@ class GroqLLM:
             with urllib.request.urlopen(request, timeout=25) as response:
                 data = json.loads(response.read().decode("utf-8"))
                 return str(data["choices"][0]["message"]["content"])
-        except (urllib.error.URLError, KeyError, IndexError, json.JSONDecodeError):
+        except (urllib.error.URLError, TimeoutError, KeyError, IndexError, json.JSONDecodeError):
             return None

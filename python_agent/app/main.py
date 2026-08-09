@@ -54,7 +54,7 @@ class Message(BaseModel):
 class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=4000)
     history: list[Message] = Field(default_factory=list, max_length=20)
-    thread_id: str = Field(default="default", min_length=1, max_length=100)
+    thread_id: str = Field(default="default-session", min_length=8, max_length=100, pattern=r"^[A-Za-z0-9_-]+$")
 
 
 class ChatResponse(BaseModel):

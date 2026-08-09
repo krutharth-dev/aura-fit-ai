@@ -20,14 +20,28 @@ hosting="${SITES_PROJECT_ROOT}/dist/.openai/hosting.json"
 }
 
 node --input-type=module - "${worker}" "${hosting}" <<'NODE'
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import { registerHooks } from "node:module";
+import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
 const [workerPath, hostingPath] = process.argv.slice(2);
-JSON.parse(await readFile(hostingPath, "utf8"));
+const hosting = JSON.parse(await readFile(hostingPath, "utf8"));
+if (hosting.d1) {
+  const migrations = await readdir(join(dirname(hostingPath), "drizzle"));
+  if (!migrations.some((file) => file.endsWith(".sql"))) throw new Error("D1 is enabled but no packaged SQL migration was found.");
+}
 
 const workerUrl = pathToFileURL(workerPath);
 workerUrl.searchParams.set("sites-validation", `${process.pid}-${Date.now()}`);
+registerHooks({
+  resolve(specifier, context, nextResolve) {
+    if (specifier === "cloudflare:workers") {
+      return { url: "data:text/javascript,export const env = {};", shortCircuit: true };
+    }
+    return nextResolve(specifier, context);
+  },
+});
 const worker = await import(workerUrl.href);
 if (!worker.default || typeof worker.default.fetch !== "function") {
   throw new Error("dist/server/index.js must have an ESM default export with fetch(request, env, ctx)");

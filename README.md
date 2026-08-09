@@ -1,85 +1,65 @@
 # AURA FIT — AI Training Coach
 
-AURA FIT is a polished agentic AI gym assistant that answers workout questions,
-explains exercise technique, estimates training numbers, supports recovery
-decisions and builds personalised workout plans. It was created as a practical
-fitness use case for the MCE Agentic AI Development Workshop.
+[![CI](https://github.com/krutharth-dev/aura-fit-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/krutharth-dev/aura-fit-ai/actions/workflows/ci.yml)
 
-**Public demo:** [https://mce-agentic-ai.kruthajn777.chatgpt.site](https://mce-agentic-ai.kruthajn777.chatgpt.site)
+AURA FIT is a safety-aware agentic fitness coach that creates personalised workout programs, answers gym questions, explains exercise technique, estimates training numbers and demonstrates observable specialist routing.
 
-**Source repository:** [github.com/krutharth-dev/aura-fit-ai](https://github.com/krutharth-dev/aura-fit-ai)
+**Live demo:** [mce-agentic-ai.kruthajn777.chatgpt.site](https://mce-agentic-ai.kruthajn777.chatgpt.site)
 
-> AURA FIT provides educational fitness guidance. It does not diagnose injuries
-> or replace a doctor, physiotherapist, dietitian or qualified in-person coach.
+> Educational fitness guidance only. AURA FIT does not diagnose injuries or replace a doctor, physiotherapist, dietitian or qualified in-person coach.
 
-## How the agent works
+## Capabilities
+
+- Exact 2–6 day programs constrained by goal, experience, session duration and equipment
+- Multi-turn body-part workout builder with session memory
+- Deterministic 1RM calculator and verified gym FAQ library
+- Conservative pain screening and urgent-symptom escalation
+- Route, source and execution-trace visibility
+- Durable multi-conversation history in Cloudflare D1
+- Managed ChatGPT sign-in/sign-up with account-owned, cross-device history
+- Saved-chat switching, automatic titles, rename and delete controls
+- Six purpose-built coaching workflows and searchable conversation history
+- Responsive, keyboard-accessible hosted interface
+- Request validation, timeouts, rate limiting and production security headers
+- Demo-safe behavior without secrets or third-party availability
+
+## Two operating modes
+
+| Mode | Runtime | Purpose |
+|---|---|---|
+| Hosted app | TypeScript coach + ChatGPT identity + Cloudflare D1 | Reliable coaching with secure account sync and guest mode |
+| Full local agent | FastAPI + LangGraph + ChromaDB + optional Groq | Complete workshop architecture and open-ended generation |
+
+The hosted app does not pretend that the Python agent is running. Its **How it works** panel clearly separates the two modes. Guests receive an anonymous, secure browser workspace. Users who continue with ChatGPT receive account-owned history that follows them across signed-in devices without AURA FIT storing passwords; guest chats from the signing-in browser are safely attached to that account.
+
+## Architecture
 
 ```mermaid
 flowchart TD
-    A[Athlete question] --> B{LangGraph router}
-    B --> C[Program builder]
-    B --> D[Form coach]
+    A[Athlete request] --> B{Safety + route}
+    B --> C[Program engine]
+    B --> D[Form and FAQ]
     B --> E[Recovery guard]
-    B --> F[Training calculator]
-    B --> G[General coach]
-    C --> H[ChromaDB + Groq]
-    D --> H
-    E --> H
-    F --> I[Answer + route + source + trace]
-    G --> H
-    H --> I
+    B --> F[Calculator]
+    C --> G[Answer + source + trace]
+    D --> G
+    E --> G
+    F --> G
 ```
 
-## Workshop technology mapping
+The local backend additionally uses LangGraph for state transitions, ChromaDB for relevant fitness context and Groq for optional grounded refinement.
 
-| Workshop topic | AURA FIT implementation |
-|---|---|
-| Agent architecture | Five specialist routes with conditional decisions |
-| Groq and prompting | Server-side fitness coaching prompt and live responses |
-| LangGraph | Stateful routing graph with thread memory |
-| ChromaDB | Persistent exercise and programming knowledge base |
-| Evaluation/deployment | Safety tests, route tests, trace output and hosted UI |
+## Quick demo
 
-## Features
+1. `I want to train back today.` Then reply `six`.
+2. `Create a 4-day muscle-building plan for an intermediate lifter with full gym access, 60-minute sessions and no limitations.`
+3. `Explain the main squat form cues and common mistakes.`
+4. `Estimate my 1RM from 100 kg × 5 reps.`
+5. `I have chest pain, but how long should I rest between sets?`
 
-- Premium responsive gym-chat interface
-- Multi-turn body-part workout builder that remembers the selected muscle group, asks for an exercise count, and returns exactly that many movements
-- Uniform offline-safe coverage for back, chest, shoulders, legs, quads, hamstrings, glutes, biceps, triceps, arms, core, calves, forearms and full body
-- Workout-plan generator that considers goal, experience, days, time, equipment and limitations
-- Exercise form answers with setup, execution, common errors and regressions
-- Common gym answers covering warm-ups, rest periods, sets and reps, exercise order, frequency, cardio, failure, progression and substitutions
-- Recovery route with conservative pain and red-flag safety handling
-- Deterministic 1RM estimator and safe arithmetic tool
-- Groq-powered live coaching when an API key is present
-- LangGraph routing and ChromaDB retrieval in the Python backend
-- Conversation memory plus visible route and source labels
-- Demo-safe mode that works without an API key
-- macOS, Windows and Ubuntu setup scripts
-- Automated routing, safety, calculator and program tests
+## Local setup
 
-## Fastest demonstration
-
-Open the hosted project. It automatically uses demo-safe mode when no Groq key
-is configured. Try these prompts:
-
-1. `I want to train back today.` Then answer `six` when AURA FIT asks how many exercises you want.
-2. `Give me 4 chest exercises.` — demonstrates a direct body-part request.
-3. `How long should I rest between sets for muscle growth?`
-4. `Create a 4-day muscle-building plan for an intermediate lifter with full gym access and 60-minute sessions.`
-5. `Explain the main squat form cues and common mistakes.`
-6. `Estimate my 1RM from 100 kg × 5 reps.`
-7. `My legs are still sore two days after training. Should I train them again?`
-
-## Full local setup
-
-### Requirements
-
-- Node.js 22 or newer
-- Python 3.11 or 3.12
-- Git
-- A free Groq API key for live open-ended responses
-
-### macOS or Ubuntu
+Requirements: Node.js 22+, Python 3.11 or 3.12, and Git.
 
 ```bash
 git clone https://github.com/krutharth-dev/aura-fit-ai.git
@@ -87,109 +67,42 @@ cd aura-fit-ai
 npm install
 npm run setup:agent
 cp .env.example .env.local
-```
-
-Open `.env.local`, paste your Groq key after `GROQ_API_KEY=`, then run:
-
-```bash
 npm run dev:full
 ```
 
-### Windows PowerShell
+On Windows, use `Copy-Item .env.example .env.local`. A Groq key is optional; never commit `.env.local` or paste a key into the browser chat.
 
-```powershell
-git clone https://github.com/krutharth-dev/aura-fit-ai.git
-cd aura-fit-ai
-npm install
-npm run setup:agent
-Copy-Item .env.example .env.local
-npm run dev:full
-```
-
-Open the URL printed by Vite, normally
-[http://localhost:5173](http://localhost:5173). Press `Ctrl+C` to stop both
-services.
-
-Never put a Groq key in the browser chat or commit `.env.local` to GitHub.
-
-## Terminal-only demo
+## Quality gates
 
 ```bash
-# macOS / Ubuntu — from the repository root
-cd python_agent
-../.venv/bin/python -m app.cli
-```
-
-On Windows, run `..\.venv\Scripts\python.exe -m app.cli` from the
-`python_agent` folder.
-
-## Tests
-
-```bash
+npm run lint
+npm run typecheck
 npm test
-
-# macOS / Ubuntu
-.venv/bin/python -m unittest discover -s python_agent/tests -v
-
-# Windows
-.venv\Scripts\python.exe -m unittest discover -s python_agent/tests -v
+npm run test:d1
+npm run test:python
+npm audit --omit=dev
 ```
 
-## Python API
-
-The agent service starts at `http://127.0.0.1:8000`.
-
-- `GET /health` — reports LangGraph, ChromaDB and live/demo status
-- `POST /chat` — accepts a message, recent history and thread ID
-- `GET /docs` — interactive FastAPI documentation
-
-Example:
-
-```json
-{
-  "message": "Explain squat form",
-  "history": [],
-  "thread_id": "gym-demo"
-}
-```
-
-## Two-minute viva explanation
-
-“AURA FIT is more than a normal chatbot. Each question enters a LangGraph state
-machine. A router decides whether the athlete needs a program builder, exercise
-form coach, recovery safety guard, training calculator or general coach.
-Exercise and programming questions retrieve relevant guidance from a persistent
-ChromaDB collection, then Groq can generate a grounded response. The system
-returns the selected route, source and execution trace for observability. If the
-API or internet is unavailable, local tools preserve the core demonstration.”
+The test suite verifies exact day counts, equipment and time constraints, missing-profile handling, limitation refusal, multi-turn memory, guest isolation, signed-in cross-device database sync, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
 
 ## Project structure
 
 ```text
-app/                     Gym chat interface and secure server endpoint
-python_agent/app/        LangGraph router, fitness tools, ChromaDB and FastAPI
-python_agent/data/       Local exercise and programming knowledge base
-python_agent/tests/      Route, safety, calculator and plan tests
-scripts/                 Cross-platform setup and start scripts
-.env.example             Safe configuration template
-DEMO_GUIDE.md            Three-minute demo and viva preparation
+app/                     Hosted chat UI, coaching and conversation APIs
+db/                      D1 schema and server-only history access
+drizzle/                 Reviewed, versioned SQL migrations
+python_agent/app/        LangGraph agent, retrieval and FastAPI service
+python_agent/tests/      Python route, program, safety and calculator tests
+tests/                   Hosted Worker integration tests
+scripts/                 Cross-platform setup and release validation
+.github/                 CI and dependency update configuration
+DEMO_GUIDE.md            Three-minute demonstration and viva guide
+SECURITY.md              Vulnerability reporting and safety boundaries
 ```
-
-## Submission checklist
-
-- Replace both team placeholders below with names, USNs and section before submission.
-- Test the public demo in a private/incognito window and on a second device.
-- Test the suggested body-part, FAQ, plan, form, calculator and recovery prompts.
-- Keep `.env.local` private.
-- Carry the ZIP in Google Drive or on a USB drive.
-- Keep the hosted link ready as the first demonstration option.
-
----
-
-Built as a fitness-focused Agentic AI project for the MCE Department of
-Computer Science and Engineering workshop, August 2026.
 
 ## Project team
 
-1. **Team member 1:** Kishan B Gowda / 4MC24CS097 
-2. **Team member 2:** Krutharth Prashanth Gowda / 4MC24CS099 
+1. **Kishan B Gowda** — 4MC24CS097
+2. **Krutharth Prashanth Gowda** — 4MC24CS099
+
+Built for the MCE Department of Computer Science and Engineering Agentic AI Development Workshop, August 2026.
