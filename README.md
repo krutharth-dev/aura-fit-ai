@@ -51,7 +51,7 @@ The local backend additionally uses LangGraph for state transitions, ChromaDB fo
 
 ## Quick demo
 
-1. `I want to train back today.` Then reply `six`.
+1. Choose **Train a body part**, select **Chest** (or any available muscle group), then choose **5**. The coach builds exactly five exercises for that selection.
 2. `Create a 4-day muscle-building plan for an intermediate lifter with full gym access, 60-minute sessions and no limitations.`
 3. `Explain the main squat form cues and common mistakes.`
 4. `Estimate my 1RM from 100 kg × 5 reps.`

@@ -8,7 +8,7 @@
 
 ### 0:25–1:00 — show memory
 
-Ask `I want to train back today.` Then reply `six`. Explain that the second message does not repeat “back,” yet the coach uses recent conversation state and returns exactly six exercises. Expand **View agent trace**.
+Choose **Train a body part**, select **Chest** from the suggested replies, then choose **5**. Explain that the final reply does not repeat “chest,” yet the coach uses recent conversation state and returns exactly five chest exercises. The same guided flow works for every listed muscle group rather than being fixed to one workout. Expand **View agent trace**.
 
 Then click **New conversation**, choose another coaching workflow and switch between both saved chats in the sidebar. Use search to find one, then reload the page to demonstrate durable D1-backed history.
 
@@ -51,7 +51,7 @@ Run `npm run dev:full`, then repeat the form prompt `Explain squat form`. Show t
 ## Final check
 
 - Open the public link on phone and laptop.
-- Run all five prompts above.
+- Run every demo interaction above, including the guided body-part choices.
 - Confirm the requested plan contains the exact day count.
 - Expand at least one agent trace.
 - Confirm guest mode and the managed sign-in/sign-up entry point both render.

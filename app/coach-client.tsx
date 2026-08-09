@@ -30,6 +30,9 @@ const starterPrompts = [
   { label: "Check recovery", prompt: "My legs are sore two days after training. Should I train them again today?", icon: "06", category: "RECOVERY" },
 ];
 
+const bodyPartReplies = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Arms", "Quads", "Hamstrings", "Glutes", "Legs", "Calves", "Core", "Forearms", "Full body"];
+const exerciseCountReplies = ["3", "4", "5", "6", "7", "8"];
+
 const welcomeMessage: Message = {
   id: "welcome",
   role: "assistant",
@@ -38,6 +41,12 @@ const welcomeMessage: Message = {
 };
 
 function freshMessages() { return [{ ...welcomeMessage }]; }
+function suggestedReplies(message: Message, isLatest: boolean) {
+  if (!isLatest || message.role !== "assistant") return [];
+  if (message.content.includes("Which body part or muscle group would you like to train")) return bodyPartReplies;
+  if (message.content.includes("How many exercises would you like in this session")) return exerciseCountReplies;
+  return [];
+}
 function newMessageId() {
   const value = typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
     ? crypto.randomUUID()
@@ -303,6 +312,9 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
               <div className="message-column">
                 {message.role === "assistant" && <div className="message-meta"><span>AURA FIT</span><em>{routeLabel(message.route)}</em></div>}
                 <div className="message-bubble">{message.content.split("\n").map((line, lineIndex, lines) => <span key={lineIndex}>{line}{lineIndex < lines.length - 1 && <br />}</span>)}</div>
+                {suggestedReplies(message, index === messages.length - 1).length > 0 && <div className="quick-replies" aria-label="Suggested replies">
+                  {suggestedReplies(message, true).map((reply) => <button key={reply} type="button" disabled={loading} onClick={() => void sendMessage(reply)} aria-label={`Reply ${reply}`}>{reply}</button>)}
+                </div>}
                 {message.source && <small className="source-label">↳ {message.source}</small>}
                 {message.trace?.length ? <div className="trace-wrap">
                   <button className="trace-toggle" onClick={() => setOpenTrace(openTrace === message.id ? null : message.id)} aria-expanded={openTrace === message.id}>{openTrace === message.id ? "Hide" : "View"} agent trace</button>

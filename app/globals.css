@@ -169,6 +169,10 @@ button { color: inherit; }
 .message-bubble { color: #c9cdd5; font-size: 13px; line-height: 1.75; }
 .message-row.assistant .message-bubble { padding-top: 4px; }
 .message-row.user .message-bubble { padding: 11px 15px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px 13px 3px 13px; background: #171a21; color: #dfe2e8; }
+.quick-replies { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+.quick-replies button { min-height: 32px; padding: 7px 11px; border: 1px solid rgba(140,255,84,.23); border-radius: 999px; background: rgba(140,255,84,.045); color: #b9dbae; font: 700 9px/1 var(--font-geist-mono), monospace; letter-spacing: .035em; cursor: pointer; transition: .18s ease; }
+.quick-replies button:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(140,255,84,.48); background: rgba(140,255,84,.1); color: #ddffd0; }
+.quick-replies button:disabled { opacity: .4; cursor: wait; }
 .source-label { display: block; margin-top: 7px; color: #545b66; font-size: 8px; letter-spacing: .05em; }
 .trace-wrap { margin-top: 8px; }
 .trace-toggle { padding: 0; border: 0; background: transparent; color: #6f9360; cursor: pointer; font-size: 8px; letter-spacing: .08em; text-transform: uppercase; }
