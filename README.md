@@ -20,7 +20,7 @@ AURA FIT is a safety-aware agentic fitness coach that creates personalised worko
 - Saved-chat switching, automatic titles, rename and delete controls
 - Six purpose-built coaching workflows and searchable conversation history
 - Responsive, keyboard-accessible hosted interface
-- Request validation, timeouts, rate limiting and production security headers
+- Request validation, timeouts, D1-backed distributed rate limiting and production security headers
 - Demo-safe behavior without secrets or third-party availability
 
 ## Two operating modes

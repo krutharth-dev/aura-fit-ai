@@ -260,7 +260,7 @@ export function isBodyPartWorkoutTurn(message: string, history: ChatHistoryItem[
   const count = extractExerciseCount(message);
   const assistantAskedForCount = earlier
     .slice(-3)
-    .some((item) => item.role === "assistant" && /how many (?:exercise )?(?:variations|exercises|movements)/i.test(item.content));
+    .some((item) => item.role === "assistant" && /how many (?:exercise )?(?:variations|exercises|movements)|choose between 3 and 8 exercises/i.test(item.content));
   return Boolean(count && assistantAskedForCount && mostRecentBodyPart(earlier));
 }
 
@@ -276,8 +276,8 @@ export function bodyPartWorkoutAnswer(message: string, history: ChatHistoryItem[
   if (!count) {
     return `Great—${bodyPart} day. How many exercises would you like in this session? Choose a number from 3 to 8 (for example, “six”).`;
   }
-  if (count < 1 || count > 10) {
-    return "Choose between 1 and 10 exercises so the session stays practical.";
+  if (count < 3 || count > 8) {
+    return "Choose between 3 and 8 exercises so the session stays practical.";
   }
 
   const exercises = WORKOUT_LIBRARY[bodyPart].slice(0, count);

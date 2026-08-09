@@ -50,6 +50,19 @@ async function createConversation(client, message) {
   return result.conversation.id;
 }
 
+async function sendChat(client, conversationId, message, clientIp) {
+  return client("/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", "cf-connecting-ip": clientIp },
+    body: JSON.stringify({
+      message,
+      history: [{ role: "user", content: message }],
+      thread_id: conversationId,
+      conversation_id: conversationId,
+    }),
+  });
+}
+
 try {
   await waitForServer();
 
@@ -73,16 +86,7 @@ try {
   assert.equal(upgraded.scope, "account");
   assert.ok(upgraded.conversations.some((item) => item.id === guestId));
   const accountId = await createConversation(accountDeviceA, "Account strength chat");
-  const chat = await accountDeviceA("/api/chat", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      message: "Estimate my 1RM from 80 kg x 5 reps.",
-      history: [{ role: "user", content: "Estimate my 1RM from 80 kg x 5 reps." }],
-      thread_id: accountId,
-      conversation_id: accountId,
-    }),
-  });
+  const chat = await sendChat(accountDeviceA, accountId, "Estimate my 1RM from 80 kg x 5 reps.", "account-initial");
   assert.equal(chat.persisted, true);
 
   const synced = await accountDeviceB("/api/conversations");
@@ -91,6 +95,15 @@ try {
   assert.ok(synced.conversations.some((item) => item.id === accountId));
   const loaded = await accountDeviceB(`/api/conversations/${accountId}`);
   assert.equal(loaded.conversation.messages.length, 2);
+
+  const simultaneous = await Promise.all([
+    sendChat(accountDeviceA, accountId, "Estimate my 1RM from 90 kg x 5 reps.", "account-device-a"),
+    sendChat(accountDeviceB, accountId, "Estimate my 1RM from 100 kg x 5 reps.", "account-device-b"),
+  ]);
+  assert.ok(simultaneous.every((result) => result.persisted));
+  const ordered = await accountDeviceA(`/api/conversations/${accountId}`);
+  assert.equal(ordered.conversation.messages.length, 6);
+  assert.deepEqual(ordered.conversation.messages.slice(2).map((message) => message.role), ["user", "assistant", "user", "assistant"]);
 
   const otherAccount = apiClient({ "oai-authenticated-user-email": `other-${crypto.randomUUID()}@example.com` });
   assert.ok(!(await otherAccount("/api/conversations")).conversations.some((item) => item.id === accountId));
@@ -104,7 +117,36 @@ try {
   await accountDeviceB(`/api/conversations/${accountId}`, { method: "DELETE" });
   assert.ok(!(await accountDeviceA("/api/conversations")).conversations.some((item) => item.id === accountId));
 
-  console.log("Verified guest isolation and signed-in, cross-device D1 conversation sync.");
+  const longConversationId = await createConversation(accountDeviceA, "Long-running workout history");
+  for (let index = 0; index < 101; index += 1) {
+    const weight = 80 + index;
+    await sendChat(accountDeviceA, longConversationId, `Estimate my 1RM from ${weight} kg x 5 reps.`, `long-history-${index}`);
+  }
+  const longConversation = await accountDeviceB(`/api/conversations/${longConversationId}`);
+  assert.equal(longConversation.conversation.messages.length, 200);
+  assert.equal(longConversation.conversation.messages[0].content, "Estimate my 1RM from 81 kg x 5 reps.");
+  assert.match(longConversation.conversation.messages.at(-1).content, /about 206 kg/);
+  const longSummary = (await accountDeviceA("/api/conversations")).conversations.find((item) => item.id === longConversationId);
+  assert.equal(longSummary.messageCount, 202);
+
+  const rateLimitIp = `rate-limit-${crypto.randomUUID()}`;
+  for (let index = 0; index < 30; index += 1) {
+    const response = await fetch(`${base}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "cf-connecting-ip": rateLimitIp },
+      body: JSON.stringify({ message: "How long should I rest between sets?" }),
+    });
+    assert.equal(response.status, 200);
+  }
+  const limited = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "cf-connecting-ip": rateLimitIp },
+    body: JSON.stringify({ message: "How long should I rest between sets?" }),
+  });
+  assert.equal(limited.status, 429);
+  assert.ok(Number(limited.headers.get("retry-after")) >= 1);
+
+  console.log("Verified ownership, concurrent ordering, latest-history loading, and distributed D1 rate limiting.");
 } finally {
   if (server.exitCode === null) server.kill("SIGTERM");
   await Promise.race([once(server, "exit"), new Promise((resolve) => setTimeout(resolve, 5_000))]);

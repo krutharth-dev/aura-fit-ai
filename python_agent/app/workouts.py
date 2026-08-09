@@ -260,7 +260,7 @@ def is_body_part_workout_turn(question: str, history: list[dict[str, str]] | Non
     count = extract_exercise_count(question)
     asked_for_count = any(
         item.get("role") == "assistant"
-        and re.search(r"how many (?:exercise )?(?:variations|exercises|movements)", item.get("content", ""), re.I)
+        and re.search(r"how many (?:exercise )?(?:variations|exercises|movements)|choose between 3 and 8 exercises", item.get("content", ""), re.I)
         for item in earlier[-3:]
     )
     return bool(count and asked_for_count and _recent_body_part(earlier))
@@ -279,6 +279,8 @@ def body_part_workout_answer(question: str, history: list[dict[str, str]] | None
     count = extract_exercise_count(question)
     if not count:
         return f"Great—{body_part} day. How many exercises would you like in this session? Choose a number from 3 to 8 (for example, ‘six’)."
+    if count < 3 or count > 8:
+        return "Choose between 3 and 8 exercises so the session stays practical."
     exercises = WORKOUTS[body_part][:count]
     lines = [f"{index}. {exercise['name']} — {exercise['prescription']}" for index, exercise in enumerate(exercises, 1)]
     return (

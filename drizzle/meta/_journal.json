@@ -8,6 +8,13 @@
       "when": 1786269127890,
       "tag": "0000_whole_sunfire",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786284935636,
+      "tag": "0001_fair_mephistopheles",
+      "breakpoints": true
     }
   ]
 }

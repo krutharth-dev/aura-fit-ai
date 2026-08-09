@@ -5,7 +5,7 @@ import {
   type ChatHistoryItem,
 } from "./workouts";
 import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
-import { adoptGuestConversations, historyDatabase, historyIdentity, historyJson, saveExchange } from "../../../db/history";
+import { adoptGuestConversations, consumeRateLimit, historyDatabase, historyIdentity, historyJson, rateLimitKey, saveExchange } from "../../../db/history";
 
 type ChatRequest = { message?: unknown; history?: unknown; thread_id?: unknown; conversation_id?: unknown };
 type CoachPayload = { answer: string; route: string; source: string; trace?: string[] };
@@ -16,6 +16,7 @@ const MAX_HISTORY_LENGTH = 10;
 const MAX_HISTORY_ITEM_LENGTH = 4_000;
 const RATE_WINDOW_MS = 60_000;
 const RATE_LIMIT = 30;
+const MAX_LOCAL_BUCKETS = 500;
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
 const FITNESS_CONTEXT = `
@@ -180,20 +181,36 @@ function requestThreadId(value: unknown) {
     ? value : `aura-${crypto.randomUUID()}`;
 }
 
-function isRateLimited(request: Request) {
+function localRateLimit(client: string, now: number) {
+  if (requestBuckets.size >= MAX_LOCAL_BUCKETS) {
+    for (const [key, bucket] of requestBuckets) if (bucket.resetAt <= now) requestBuckets.delete(key);
+    while (requestBuckets.size >= MAX_LOCAL_BUCKETS) {
+      const oldest = requestBuckets.keys().next().value as string | undefined;
+      if (!oldest) break;
+      requestBuckets.delete(oldest);
+    }
+  }
+  const current = requestBuckets.get(client);
+  if (!current || current.resetAt <= now) {
+    requestBuckets.delete(client);
+    requestBuckets.set(client, { count: 1, resetAt: now + RATE_WINDOW_MS });
+    return { limited: false, retryAfterSeconds: 60 };
+  }
+  current.count += 1;
+  return { limited: current.count > RATE_LIMIT, retryAfterSeconds: Math.max(1, Math.ceil((current.resetAt - now) / 1_000)) };
+}
+
+async function rateLimitState(request: Request) {
   const now = Date.now();
   const client = request.headers.get("cf-connecting-ip")
     ?? request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "anonymous";
-  const current = requestBuckets.get(client);
-  if (!current || current.resetAt <= now) {
-    requestBuckets.set(client, { count: 1, resetAt: now + RATE_WINDOW_MS });
-    return false;
+  try {
+    const db = await historyDatabase();
+    if (db) return await consumeRateLimit(db, await rateLimitKey(client), RATE_LIMIT, RATE_WINDOW_MS);
+  } catch {
+    // A bounded per-isolate fallback preserves availability if D1 is unavailable.
   }
-  current.count += 1;
-  if (requestBuckets.size > 500) {
-    for (const [key, bucket] of requestBuckets) if (bucket.resetAt <= now) requestBuckets.delete(key);
-  }
-  return current.count > RATE_LIMIT;
+  return localRateLimit(client, now);
 }
 
 function isSafetyCritical(message: string) {
@@ -212,8 +229,9 @@ async function boundedFetch(input: string, init: RequestInit, timeoutMs = 12_000
 
 export async function POST(request: Request) {
   try {
-    if (isRateLimited(request)) {
-      return Response.json({ error: "Too many requests. Please wait a minute and try again." }, { status: 429, headers: { "Retry-After": "60" } });
+    const rateLimit = await rateLimitState(request);
+    if (rateLimit.limited) {
+      return Response.json({ error: "Too many requests. Please wait a minute and try again." }, { status: 429, headers: { "Retry-After": String(rateLimit.retryAfterSeconds) } });
     }
     const rawBody = await request.text();
     if (rawBody.length > MAX_REQUEST_BYTES) return Response.json({ error: "Request is too large" }, { status: 413 });

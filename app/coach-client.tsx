@@ -44,7 +44,7 @@ function freshMessages() { return [{ ...welcomeMessage }]; }
 function suggestedReplies(message: Message, isLatest: boolean) {
   if (!isLatest || message.role !== "assistant") return [];
   if (message.content.includes("Which body part or muscle group would you like to train")) return bodyPartReplies;
-  if (message.content.includes("How many exercises would you like in this session")) return exerciseCountReplies;
+  if (message.content.includes("How many exercises would you like in this session") || message.content.includes("Choose between 3 and 8 exercises")) return exerciseCountReplies;
   return [];
 }
 function newMessageId() {

@@ -74,6 +74,13 @@ async function ensureSchema(db: D1DatabaseLike) {
         FOREIGN KEY (conversation_id) REFERENCES conversations(id) ON DELETE CASCADE
       )`),
       db.prepare("CREATE INDEX IF NOT EXISTS messages_conversation_sequence_idx ON messages (conversation_id, sequence)"),
+      db.prepare("CREATE UNIQUE INDEX IF NOT EXISTS messages_conversation_sequence_unique ON messages (conversation_id, sequence)"),
+      db.prepare(`CREATE TABLE IF NOT EXISTS rate_limits (
+        bucket_key TEXT PRIMARY KEY NOT NULL,
+        count INTEGER NOT NULL,
+        reset_at INTEGER NOT NULL
+      )`),
+      db.prepare("CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits (reset_at)"),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
@@ -138,6 +145,38 @@ export async function historyDatabase() {
   return db;
 }
 
+export async function rateLimitKey(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function consumeRateLimit(db: D1DatabaseLike, bucketKey: string, limit: number, windowMs: number) {
+  const now = Date.now();
+  const resetAt = now + windowMs;
+  const bucket = await db.prepare(`INSERT INTO rate_limits (bucket_key, count, reset_at)
+      VALUES (?, 1, ?)
+      ON CONFLICT(bucket_key) DO UPDATE SET
+        count = CASE WHEN rate_limits.reset_at <= ? THEN 1 ELSE rate_limits.count + 1 END,
+        reset_at = CASE WHEN rate_limits.reset_at <= ? THEN excluded.reset_at ELSE rate_limits.reset_at END
+      RETURNING count, reset_at`)
+    .bind(bucketKey, resetAt, now, now)
+    .first<{ count: number; reset_at: number }>();
+  const count = Number(bucket?.count ?? 1);
+  const activeResetAt = Number(bucket?.reset_at ?? resetAt);
+
+  // Each new/reset bucket has a small deterministic chance to remove expired rows.
+  // This bounds retained data without adding a cleanup write to every request.
+  if (count === 1 && Number.parseInt(bucketKey.slice(-2), 16) < 16) {
+    await db.prepare("DELETE FROM rate_limits WHERE reset_at <= ? AND bucket_key <> ?")
+      .bind(now, bucketKey).run();
+  }
+  return {
+    limited: count > limit,
+    retryAfterSeconds: Math.max(1, Math.ceil((activeResetAt - now) / 1_000)),
+  };
+}
+
 export async function adoptGuestConversations(db: D1DatabaseLike, identity: HistoryIdentity) {
   if (identity.authType !== "account" || identity.ownerId === identity.deviceId) return;
   await db.prepare("UPDATE conversations SET device_id = ? WHERE device_id = ?")
@@ -182,9 +221,9 @@ export async function loadConversation(db: D1DatabaseLike, ownerId: string, id: 
     .bind(id, ownerId).first<{ id: string; title: string; created_at: number; updated_at: number }>();
   if (!conversation) return null;
   const rows = await db.prepare(`SELECT id, role, content, route, source, trace_json, created_at
-    FROM messages WHERE conversation_id = ? ORDER BY sequence ASC LIMIT 200`)
+    FROM messages WHERE conversation_id = ? ORDER BY sequence DESC, created_at DESC, id DESC LIMIT 200`)
     .bind(id).all<{ id: string; role: "user" | "assistant"; content: string; route: string | null; source: string | null; trace_json: string | null; created_at: number }>();
-  const messages: StoredMessage[] = rows.results.map((row) => {
+  const messages: StoredMessage[] = rows.results.reverse().map((row) => {
     let trace: string[] | undefined;
     try { trace = row.trace_json ? JSON.parse(row.trace_json) as string[] : undefined; } catch { trace = undefined; }
     return { id: row.id, role: row.role, content: row.content, route: row.route ?? undefined, source: row.source ?? undefined, trace, createdAt: Number(row.created_at) };
@@ -221,16 +260,17 @@ export async function saveExchange(
   const owned = await db.prepare("SELECT id, title FROM conversations WHERE id = ? AND device_id = ?")
     .bind(conversationId, ownerId).first<{ id: string; title: string }>();
   if (!owned) return false;
-  const maximum = await db.prepare("SELECT COALESCE(MAX(sequence), 0) AS maximum FROM messages WHERE conversation_id = ?")
-    .bind(conversationId).first<{ maximum: number }>();
-  const sequence = Number(maximum?.maximum ?? 0);
   const now = Date.now();
   const suggestedTitle = owned.title === "New conversation" ? titleFromMessage(userContent) : owned.title;
   await db.batch([
-    db.prepare("INSERT INTO messages (id, conversation_id, role, content, route, source, trace_json, created_at, sequence) VALUES (?, ?, 'user', ?, NULL, NULL, NULL, ?, ?)")
-      .bind(`msg_${crypto.randomUUID()}`, conversationId, userContent, now, sequence + 1),
-    db.prepare("INSERT INTO messages (id, conversation_id, role, content, route, source, trace_json, created_at, sequence) VALUES (?, ?, 'assistant', ?, ?, ?, ?, ?, ?)")
-      .bind(`msg_${crypto.randomUUID()}`, conversationId, assistant.content, assistant.route ?? null, assistant.source ?? null, assistant.trace ? JSON.stringify(assistant.trace.slice(0, 20)) : null, now + 1, sequence + 2),
+    db.prepare(`INSERT INTO messages (id, conversation_id, role, content, route, source, trace_json, created_at, sequence)
+      SELECT ?, ?, 'user', ?, NULL, NULL, NULL, ?, COALESCE(MAX(sequence), 0) + 1
+      FROM messages WHERE conversation_id = ?`)
+      .bind(`msg_${crypto.randomUUID()}`, conversationId, userContent, now, conversationId),
+    db.prepare(`INSERT INTO messages (id, conversation_id, role, content, route, source, trace_json, created_at, sequence)
+      SELECT ?, ?, 'assistant', ?, ?, ?, ?, ?, COALESCE(MAX(sequence), 0) + 1
+      FROM messages WHERE conversation_id = ?`)
+      .bind(`msg_${crypto.randomUUID()}`, conversationId, assistant.content, assistant.route ?? null, assistant.source ?? null, assistant.trace ? JSON.stringify(assistant.trace.slice(0, 20)) : null, now + 1, conversationId),
     db.prepare("UPDATE conversations SET title = ?, updated_at = ? WHERE id = ? AND device_id = ?")
       .bind(suggestedTitle, now + 1, conversationId, ownerId),
   ]);

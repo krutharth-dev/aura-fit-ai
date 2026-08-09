@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const conversations = sqliteTable("conversations", {
   id: text("id").primaryKey(),
@@ -20,4 +20,11 @@ export const messages = sqliteTable("messages", {
   sequence: integer("sequence").notNull(),
 }, (table) => [
   index("messages_conversation_sequence_idx").on(table.conversationId, table.sequence),
+  uniqueIndex("messages_conversation_sequence_unique").on(table.conversationId, table.sequence),
 ]);
+
+export const rateLimits = sqliteTable("rate_limits", {
+  bucketKey: text("bucket_key").primaryKey(),
+  count: integer("count").notNull(),
+  resetAt: integer("reset_at").notNull(),
+}, (table) => [index("rate_limits_reset_idx").on(table.resetAt)]);

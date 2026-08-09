@@ -101,12 +101,26 @@ test("guides body-part workouts one question at a time without defaulting to bac
   const secondHistory = [{ role: "user", content: firstPrompt }, { role: "assistant", content: first.data.answer }, { role: "user", content: "chest" }];
   const second = await chat("chest", secondHistory);
   const third = await chat("five", [...secondHistory, { role: "assistant", content: second.data.answer }, { role: "user", content: "five" }]);
+  const tooFew = await chat("2", [...secondHistory, { role: "assistant", content: second.data.answer }, { role: "user", content: "2" }]);
+  const tooMany = await chat("9", [...secondHistory, { role: "assistant", content: second.data.answer }, { role: "user", content: "9" }]);
+  const recovered = await chat("5", [
+    ...secondHistory,
+    { role: "assistant", content: second.data.answer },
+    { role: "user", content: "2" },
+    { role: "assistant", content: tooFew.data.answer },
+    { role: "user", content: "9" },
+    { role: "assistant", content: tooMany.data.answer },
+    { role: "user", content: "5" },
+  ]);
   assert.match(first.data.answer, /Which body part or muscle group/);
   assert.doesNotMatch(first.data.answer, /BACK WORKOUT/);
   assert.match(second.data.answer, /Great—chest day\. How many exercises/);
   assert.match(third.data.answer, /CHEST WORKOUT — 5 EXERCISES/);
   assert.equal((third.data.answer.match(/^\d+\./gm) ?? []).length, 5);
   assert.ok(third.data.trace.length >= 4);
+  assert.match(tooFew.data.answer, /between 3 and 8 exercises/);
+  assert.match(tooMany.data.answer, /between 3 and 8 exercises/);
+  assert.match(recovered.data.answer, /CHEST WORKOUT — 5 EXERCISES/);
 });
 
 test("keeps calculator and urgent safety behavior deterministic", async () => {

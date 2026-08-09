@@ -86,6 +86,25 @@ class AuraFitAgentTests(unittest.TestCase):
         self.assertNotIn("BACK WORKOUT", third["answer"])
         self.assertEqual(len(re.findall(r"(?m)^\d+\.", third["answer"])), 5)
 
+        for invalid_count in ("two", "nine"):
+            invalid_history = body_part_history + [
+                {"role": "assistant", "content": second["answer"]},
+                {"role": "user", "content": invalid_count},
+            ]
+            invalid = self.agent.invoke(invalid_count, history=invalid_history, thread_id=f"test-body-part-{invalid_count}")
+            self.assertIn("between 3 and 8 exercises", invalid["answer"])
+
+        retry_history = body_part_history + [
+            {"role": "assistant", "content": second["answer"]},
+            {"role": "user", "content": "two"},
+            {"role": "assistant", "content": "Choose between 3 and 8 exercises so the session stays practical."},
+            {"role": "user", "content": "nine"},
+            {"role": "assistant", "content": "Choose between 3 and 8 exercises so the session stays practical."},
+            {"role": "user", "content": "five"},
+        ]
+        recovered = self.agent.invoke("five", history=retry_history, thread_id="test-body-part-recovered")
+        self.assertIn("CHEST WORKOUT — 5 EXERCISES", recovered["answer"])
+
     def test_every_supported_body_part_generates_requested_count(self) -> None:
         for body_part in SUPPORTED_BODY_PARTS:
             with self.subTest(body_part=body_part):
