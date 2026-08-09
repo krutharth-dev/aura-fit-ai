@@ -17,6 +17,7 @@ AURA FIT is a safety-aware agentic fitness coach that creates personalised worko
 - Route, source and execution-trace visibility
 - Durable multi-conversation history in Cloudflare D1
 - Managed ChatGPT sign-in/sign-up with account-owned, cross-device history
+- Guided fitness profiles saved per account or guest device and applied automatically to coaching
 - Saved-chat switching, automatic titles, rename and delete controls
 - Six purpose-built coaching workflows and searchable conversation history
 - Responsive, keyboard-accessible hosted interface
@@ -30,7 +31,7 @@ AURA FIT is a safety-aware agentic fitness coach that creates personalised worko
 | Hosted app | TypeScript coach + ChatGPT identity + Cloudflare D1 | Reliable coaching with secure account sync and guest mode |
 | Full local agent | FastAPI + LangGraph + ChromaDB + optional Groq | Complete workshop architecture and open-ended generation |
 
-The hosted app does not pretend that the Python agent is running. Its **How it works** panel clearly separates the two modes. Guests receive an anonymous, secure browser workspace. Users who continue with ChatGPT receive account-owned history that follows them across signed-in devices without AURA FIT storing passwords; guest chats from the signing-in browser are safely attached to that account.
+The hosted app does not pretend that the Python agent is running. Its **How it works** panel clearly separates the two modes. Guests receive an anonymous, secure browser workspace. Users who continue with ChatGPT receive account-owned history and a fitness profile that follow them across signed-in devices without AURA FIT storing passwords; guest chats and the guest profile from the signing-in browser are safely attached to that account.
 
 ## Architecture
 
@@ -51,11 +52,12 @@ The local backend additionally uses LangGraph for state transitions, ChromaDB fo
 
 ## Quick demo
 
-1. Choose **Train a body part**, select **Chest** (or any available muscle group), then choose **5**. The coach builds exactly five exercises for that selection.
-2. `Create a 4-day muscle-building plan for an intermediate lifter with full gym access, 60-minute sessions and no limitations.`
-3. `Explain the main squat form cues and common mistakes.`
-4. `Estimate my 1RM from 100 kg × 5 reps.`
-5. `I have chest pain, but how long should I rest between sets?`
+1. Choose **Set up profile**, complete the four short steps, then save it.
+2. Start a new chat and enter `Build my workout plan using my saved profile.` The coach applies the saved goal, schedule, session length, equipment, preferences and limitations.
+3. Choose **Train a body part**, select **Chest** (or any available muscle group), then choose **5**. The coach builds exactly five profile-aware exercises for that selection.
+4. `Explain the main squat form cues and common mistakes.`
+5. `Estimate my 1RM from 100 kg × 5 reps.`
+6. `I have chest pain, but how long should I rest between sets?`
 
 ## Local setup
 
@@ -83,7 +85,7 @@ npm run test:python
 npm audit --omit=dev
 ```
 
-The test suite verifies exact day counts, equipment and time constraints, missing-profile handling, limitation refusal, multi-turn memory, guest isolation, signed-in cross-device database sync, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
+The test suite verifies saved-profile validation and guest-to-account adoption, profile-aware program generation, exact day counts, equipment and time constraints, limitation refusal, multi-turn memory, guest isolation, signed-in cross-device database sync, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
 
 ## Project structure
 

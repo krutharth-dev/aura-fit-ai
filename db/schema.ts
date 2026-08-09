@@ -28,3 +28,16 @@ export const rateLimits = sqliteTable("rate_limits", {
   count: integer("count").notNull(),
   resetAt: integer("reset_at").notNull(),
 }, (table) => [index("rate_limits_reset_idx").on(table.resetAt)]);
+
+export const fitnessProfiles = sqliteTable("fitness_profiles", {
+  ownerId: text("owner_id").primaryKey(),
+  goal: text("goal", { enum: ["muscle_gain", "fat_loss", "strength", "general_fitness"] }).notNull(),
+  experience: text("experience", { enum: ["beginner", "intermediate", "advanced"] }).notNull(),
+  daysPerWeek: integer("days_per_week").notNull(),
+  sessionMinutes: integer("session_minutes").notNull(),
+  equipment: text("equipment", { enum: ["full_gym", "home_dumbbells", "bodyweight"] }).notNull(),
+  limitations: text("limitations").notNull(),
+  preferredExercises: text("preferred_exercises").notNull(),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [index("fitness_profiles_updated_idx").on(table.updatedAt)]);

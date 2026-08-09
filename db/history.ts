@@ -1,4 +1,5 @@
 import { env } from "cloudflare:workers";
+import type { FitnessProfile, FitnessProfileInput } from "../lib/fitness-profile";
 
 type BindValue = string | number | null;
 type Row = Record<string, unknown>;
@@ -10,7 +11,7 @@ interface D1Statement {
   run(): Promise<unknown>;
 }
 
-interface D1DatabaseLike {
+export interface D1DatabaseLike {
   prepare(sql: string): D1Statement;
   batch(statements: D1Statement[]): Promise<unknown[]>;
 }
@@ -81,6 +82,19 @@ async function ensureSchema(db: D1DatabaseLike) {
         reset_at INTEGER NOT NULL
       )`),
       db.prepare("CREATE INDEX IF NOT EXISTS rate_limits_reset_idx ON rate_limits (reset_at)"),
+      db.prepare(`CREATE TABLE IF NOT EXISTS fitness_profiles (
+        owner_id TEXT PRIMARY KEY NOT NULL,
+        goal TEXT NOT NULL,
+        experience TEXT NOT NULL,
+        days_per_week INTEGER NOT NULL,
+        session_minutes INTEGER NOT NULL,
+        equipment TEXT NOT NULL,
+        limitations TEXT NOT NULL,
+        preferred_exercises TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`),
+      db.prepare("CREATE INDEX IF NOT EXISTS fitness_profiles_updated_idx ON fitness_profiles (updated_at)"),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
@@ -179,8 +193,76 @@ export async function consumeRateLimit(db: D1DatabaseLike, bucketKey: string, li
 
 export async function adoptGuestConversations(db: D1DatabaseLike, identity: HistoryIdentity) {
   if (identity.authType !== "account" || identity.ownerId === identity.deviceId) return;
-  await db.prepare("UPDATE conversations SET device_id = ? WHERE device_id = ?")
-    .bind(identity.ownerId, identity.deviceId).run();
+  await db.batch([
+    db.prepare("UPDATE conversations SET device_id = ? WHERE device_id = ?").bind(identity.ownerId, identity.deviceId),
+    db.prepare(`INSERT OR IGNORE INTO fitness_profiles (
+      owner_id, goal, experience, days_per_week, session_minutes, equipment,
+      limitations, preferred_exercises, created_at, updated_at
+    ) SELECT ?, goal, experience, days_per_week, session_minutes, equipment,
+      limitations, preferred_exercises, created_at, updated_at
+      FROM fitness_profiles WHERE owner_id = ?`).bind(identity.ownerId, identity.deviceId),
+    db.prepare("DELETE FROM fitness_profiles WHERE owner_id = ?").bind(identity.deviceId),
+  ]);
+}
+
+export async function loadFitnessProfile(db: D1DatabaseLike, ownerId: string): Promise<FitnessProfile | null> {
+  const row = await db.prepare(`SELECT goal, experience, days_per_week, session_minutes,
+      equipment, limitations, preferred_exercises, updated_at
+    FROM fitness_profiles WHERE owner_id = ?`).bind(ownerId).first<{
+      goal: FitnessProfile["goal"];
+      experience: FitnessProfile["experience"];
+      days_per_week: number;
+      session_minutes: number;
+      equipment: FitnessProfile["equipment"];
+      limitations: string;
+      preferred_exercises: string;
+      updated_at: number;
+    }>();
+  if (!row) return null;
+  return {
+    goal: row.goal,
+    experience: row.experience,
+    daysPerWeek: Number(row.days_per_week),
+    sessionMinutes: Number(row.session_minutes),
+    equipment: row.equipment,
+    limitations: row.limitations,
+    preferredExercises: row.preferred_exercises,
+    updatedAt: Number(row.updated_at),
+  };
+}
+
+export async function saveFitnessProfile(db: D1DatabaseLike, ownerId: string, profile: FitnessProfileInput): Promise<FitnessProfile> {
+  const now = Date.now();
+  await db.prepare(`INSERT INTO fitness_profiles (
+      owner_id, goal, experience, days_per_week, session_minutes, equipment,
+      limitations, preferred_exercises, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(owner_id) DO UPDATE SET
+      goal = excluded.goal,
+      experience = excluded.experience,
+      days_per_week = excluded.days_per_week,
+      session_minutes = excluded.session_minutes,
+      equipment = excluded.equipment,
+      limitations = excluded.limitations,
+      preferred_exercises = excluded.preferred_exercises,
+      updated_at = excluded.updated_at`)
+    .bind(
+      ownerId,
+      profile.goal,
+      profile.experience,
+      profile.daysPerWeek,
+      profile.sessionMinutes,
+      profile.equipment,
+      profile.limitations,
+      profile.preferredExercises,
+      now,
+      now,
+    ).run();
+  return { ...profile, updatedAt: now };
+}
+
+export async function deleteFitnessProfile(db: D1DatabaseLike, ownerId: string) {
+  await db.prepare("DELETE FROM fitness_profiles WHERE owner_id = ?").bind(ownerId).run();
 }
 
 export function titleFromMessage(message: string) {

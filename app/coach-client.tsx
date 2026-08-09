@@ -1,6 +1,17 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  defaultFitnessProfile,
+  equipmentLabels,
+  equipmentOptions,
+  experienceLabels,
+  experienceLevels,
+  fitnessGoalLabels,
+  fitnessGoals,
+  type FitnessProfile,
+  type FitnessProfileInput,
+} from "../lib/fitness-profile";
 
 type Message = {
   id: string;
@@ -91,6 +102,13 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
   const [showDetails, setShowDetails] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [openTrace, setOpenTrace] = useState<string | null>(null);
+  const [profile, setProfile] = useState<FitnessProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileStep, setProfileStep] = useState(0);
+  const [profileDraft, setProfileDraft] = useState<FitnessProfileInput>(defaultFitnessProfile);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const filteredConversations = conversations.filter((conversation) => {
     const query = conversationSearch.trim().toLowerCase();
@@ -119,6 +137,22 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
         if (active) setHistoryNotice(error instanceof Error ? error.message : "Could not load saved chats");
       } finally {
         if (active) setHistoryLoading(false);
+      }
+    })();
+    return () => { active = false; };
+  }, []);
+  useEffect(() => {
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch("/api/profile", { headers: { Accept: "application/json" } });
+        const data = await response.json() as { profile?: FitnessProfile | null; error?: string };
+        if (!response.ok) throw new Error(data.error || "Could not load your fitness profile");
+        if (active) setProfile(data.profile ?? null);
+      } catch (error) {
+        if (active) setHistoryNotice(error instanceof Error ? error.message : "Could not load your fitness profile");
+      } finally {
+        if (active) setProfileLoading(false);
       }
     })();
     return () => { active = false; };
@@ -237,6 +271,43 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
 
   function onSubmit(event: FormEvent) { event.preventDefault(); void sendMessage(input); }
 
+  function openProfile() {
+    setProfileDraft(profile ? {
+      goal: profile.goal,
+      experience: profile.experience,
+      daysPerWeek: profile.daysPerWeek,
+      sessionMinutes: profile.sessionMinutes,
+      equipment: profile.equipment,
+      limitations: profile.limitations,
+      preferredExercises: profile.preferredExercises,
+    } : defaultFitnessProfile);
+    setProfileStep(0);
+    setProfileError(null);
+    setProfileOpen(true);
+  }
+
+  async function saveProfile() {
+    if (profileSaving) return;
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      const response = await fetch("/api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profileDraft),
+      });
+      const data = await response.json() as { profile?: FitnessProfile; error?: string };
+      if (!response.ok || !data.profile) throw new Error(data.error || "Could not save your fitness profile");
+      setProfile(data.profile);
+      setProfileOpen(false);
+      setHistoryNotice("Fitness profile saved. AURA FIT will apply it automatically to future chats.");
+    } catch (error) {
+      setProfileError(error instanceof Error ? error.message : "Could not save your fitness profile");
+    } finally {
+      setProfileSaving(false);
+    }
+  }
+
   return (
     <main className="app-shell">
       <div className="ambient ambient-one" /><div className="ambient ambient-two" />
@@ -273,6 +344,11 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
           <div className="system-card-top"><span className="pulse"><i /></span><span>{user ? "ACCOUNT SYNC ACTIVE" : "GUEST MODE"}</span></div>
           <div className="system-metric"><span>Conversation memory</span><strong>Durable</strong></div>
           <div className="system-metric"><span>History scope</span><strong>{user ? "All devices" : "This browser"}</strong></div>
+          <button className={`profile-launch ${profile ? "complete" : ""}`} onClick={openProfile} disabled={profileLoading}>
+            <span>{profile ? "✓" : "+"}</span>
+            <span><strong>{profile ? "Training profile active" : "Set up training profile"}</strong><small>{profile ? `${fitnessGoalLabels[profile.goal]} · ${profile.daysPerWeek} days` : "Personalise every workout"}</small></span>
+            <i>›</i>
+          </button>
         </div>
 
         <div className={`account-card ${user ? "signed-in" : "guest"}`}>
@@ -294,6 +370,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
           <div className="agent-heading"><div className="agent-orb"><span>✦</span></div><div><h1>AURA FIT <em>PRO</em></h1><p><span className="online-dot" /> COACH ONLINE <i /> {user ? "ACCOUNT SYNCED" : "GUEST WORKSPACE"}</p></div></div>
           <div className="topbar-actions">
             {!user && <a className="topbar-signin" href={signInPath}>Sign in</a>}
+            <button className="profile-button" onClick={openProfile}>{profile ? "Edit profile" : "Set up profile"}</button>
             <button className="details-button" onClick={() => setShowDetails((value) => !value)} aria-expanded={showDetails} aria-controls="architecture-panel">{showDetails ? "Hide" : "How it works"}</button>
           </div>
         </header>
@@ -322,6 +399,8 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
                 </div> : null}
                 {index === 0 && messages.length === 1 && <>
                   {!user && <div className="sync-banner"><div><strong>Keep your training history everywhere</strong><span>Sign in or create an account to access your chats across devices.</span></div><a href={signInPath}>Continue with ChatGPT</a></div>}
+                  {!profileLoading && !profile && <div className="profile-banner"><div className="profile-banner-icon">◎</div><div><strong>Make every answer personal</strong><span>Set your goal, schedule, equipment and limitations once. AURA FIT will use them automatically in future chats.</span></div><button onClick={openProfile}>Build my profile</button></div>}
+                  {profile && <div className="profile-active-strip"><span>✓</span><strong>PROFILE ACTIVE</strong><em>{fitnessGoalLabels[profile.goal]} · {profile.daysPerWeek} days · {profile.sessionMinutes} min · {equipmentLabels[profile.equipment]}</em><button onClick={openProfile}>Edit</button></div>}
                   <p className="prompt-heading">CHOOSE A COACHING WORKFLOW</p>
                   <div className="prompt-grid">{starterPrompts.map((item) => <button key={item.label} onClick={() => void sendMessage(item.prompt)}><span>{item.icon}</span><em>{item.category}</em><strong>{item.label}</strong><small>{item.prompt}</small><i>↗</i></button>)}</div>
                 </>}
@@ -340,6 +419,62 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
           <p className="composer-note"><span>✦</span> {user ? "Chats securely sync to your account" : "Guest chats are saved on this browser"} · Educational guidance, not medical diagnosis <i /> Enter to send</p>
         </div>
       </section>
+
+      {profileOpen && <div className="profile-modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !profileSaving) setProfileOpen(false); }}>
+        <section className="profile-modal" role="dialog" aria-modal="true" aria-labelledby="profile-title">
+          <header className="profile-modal-header">
+            <div><span>PERSONALISED COACHING</span><h2 id="profile-title">Your training profile</h2><p>Step {profileStep + 1} of 4</p></div>
+            <button onClick={() => setProfileOpen(false)} disabled={profileSaving} aria-label="Close fitness profile">×</button>
+          </header>
+          <div className="profile-progress" aria-hidden="true"><i style={{ width: `${((profileStep + 1) / 4) * 100}%` }} /></div>
+
+          <div className="profile-modal-body">
+            {profileStep === 0 && <div className="profile-step">
+              <div className="profile-step-heading"><span>01</span><div><h3>What is your main goal?</h3><p>This sets your training emphasis, rep ranges and progression style.</p></div></div>
+              <div className="profile-choice-grid goal-grid">
+                {fitnessGoals.map((goal) => <button key={goal} type="button" className={profileDraft.goal === goal ? "selected" : ""} onClick={() => setProfileDraft((current) => ({ ...current, goal }))}>
+                  <span>{goal === "muscle_gain" ? "M" : goal === "fat_loss" ? "F" : goal === "strength" ? "S" : "G"}</span><strong>{fitnessGoalLabels[goal]}</strong><small>{goal === "muscle_gain" ? "Hypertrophy and progressive overload" : goal === "fat_loss" ? "Preserve muscle and support activity" : goal === "strength" ? "Improve performance on key lifts" : "Build a balanced, sustainable routine"}</small>
+                </button>)}
+              </div>
+            </div>}
+
+            {profileStep === 1 && <div className="profile-step">
+              <div className="profile-step-heading"><span>02</span><div><h3>Set your training baseline</h3><p>AURA FIT uses this to choose volume and fit workouts into your week.</p></div></div>
+              <label className="profile-field"><span>Experience level</span><div className="profile-segmented">{experienceLevels.map((experience) => <button key={experience} type="button" className={profileDraft.experience === experience ? "selected" : ""} onClick={() => setProfileDraft((current) => ({ ...current, experience }))}>{experienceLabels[experience]}</button>)}</div></label>
+              <div className="profile-field-row">
+                <label className="profile-field"><span>Training days per week</span><select value={profileDraft.daysPerWeek} onChange={(event) => setProfileDraft((current) => ({ ...current, daysPerWeek: Number(event.target.value) }))}>{[2, 3, 4, 5, 6].map((days) => <option key={days} value={days}>{days} days</option>)}</select></label>
+                <label className="profile-field"><span>Minutes per session</span><select value={profileDraft.sessionMinutes} onChange={(event) => setProfileDraft((current) => ({ ...current, sessionMinutes: Number(event.target.value) }))}>{[30, 45, 60, 75, 90, 120].map((minutes) => <option key={minutes} value={minutes}>{minutes} minutes</option>)}</select></label>
+              </div>
+            </div>}
+
+            {profileStep === 2 && <div className="profile-step">
+              <div className="profile-step-heading"><span>03</span><div><h3>Where and how do you train?</h3><p>Your coach will avoid exercises that do not fit your setup.</p></div></div>
+              <div className="profile-choice-grid equipment-grid">{equipmentOptions.map((equipment) => <button key={equipment} type="button" className={profileDraft.equipment === equipment ? "selected" : ""} onClick={() => setProfileDraft((current) => ({ ...current, equipment }))}><span>{equipment === "full_gym" ? "GYM" : equipment === "home_dumbbells" ? "DB" : "BW"}</span><strong>{equipmentLabels[equipment]}</strong></button>)}</div>
+              <label className="profile-field"><span>Preferred exercises <small>Optional</small></span><input maxLength={300} value={profileDraft.preferredExercises} onChange={(event) => setProfileDraft((current) => ({ ...current, preferredExercises: event.target.value }))} placeholder="e.g. bench press, pull-ups, Romanian deadlifts" /><em>Separate preferences with commas. They will be prioritised when compatible.</em></label>
+            </div>}
+
+            {profileStep === 3 && <div className="profile-step">
+              <div className="profile-step-heading"><span>04</span><div><h3>Limitations and review</h3><p>Only save training restrictions you want AURA FIT to remember.</p></div></div>
+              <label className="profile-field"><span>Injuries or limitations <small>Optional</small></span><textarea maxLength={500} rows={3} value={profileDraft.limitations} onChange={(event) => setProfileDraft((current) => ({ ...current, limitations: event.target.value }))} placeholder="Leave blank if none. Do not include sensitive medical details that are not needed for training." /><em>AURA FIT will pause personalised programming when a saved limitation needs professional clearance.</em></label>
+              <div className="profile-review">
+                <div><span>GOAL</span><strong>{fitnessGoalLabels[profileDraft.goal]}</strong></div>
+                <div><span>BASELINE</span><strong>{experienceLabels[profileDraft.experience]} · {profileDraft.daysPerWeek} days</strong></div>
+                <div><span>SESSION</span><strong>{profileDraft.sessionMinutes} min · {equipmentLabels[profileDraft.equipment]}</strong></div>
+                <div><span>LIMITATIONS</span><strong>{profileDraft.limitations.trim() || "None reported"}</strong></div>
+              </div>
+              <p className="profile-safety-note"><span>!</span> Fitness guidance is educational and does not replace medical assessment or an in-person coach.</p>
+            </div>}
+            {profileError && <p className="profile-error" role="alert">{profileError}</p>}
+          </div>
+
+          <footer className="profile-modal-footer">
+            <button type="button" className="profile-back" onClick={() => profileStep ? setProfileStep((step) => step - 1) : setProfileOpen(false)} disabled={profileSaving}>{profileStep ? "Back" : "Cancel"}</button>
+            {profileStep < 3
+              ? <button type="button" className="profile-next" onClick={() => setProfileStep((step) => step + 1)}>Continue <span>→</span></button>
+              : <button type="button" className="profile-next" onClick={() => void saveProfile()} disabled={profileSaving}>{profileSaving ? "Saving…" : "Save profile"}</button>}
+          </footer>
+        </section>
+      </div>}
     </main>
   );
 }

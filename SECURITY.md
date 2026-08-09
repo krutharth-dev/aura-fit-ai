@@ -15,6 +15,7 @@ Security fixes are applied to the latest `main` branch and current hosted deploy
 - Chat input and history are length-limited and sanitized.
 - Sign-in and sign-up are delegated to the platform-managed ChatGPT identity flow; AURA FIT never stores passwords.
 - Guest chats are isolated by an unguessable, HttpOnly, SameSite browser identifier.
+- Fitness profiles are owner-scoped in D1, transfer from the current guest device only after sign-in and should contain only training-relevant limitations the user chooses to save.
 - Signed-in ownership keys are derived server-side from trusted identity headers using SHA-256; raw email addresses are not written to conversation records.
 - Conversation reads, renames and deletes enforce guest or account ownership server-side.
 - Public chat requests use a distributed D1 rate limit with a bounded per-instance fallback.
