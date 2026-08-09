@@ -1,3 +1,6 @@
+import type { FitnessProfile } from "../../../lib/fitness-profile";
+import { equipmentLabels, fitnessGoalLabels } from "../../../lib/fitness-profile";
+
 export type ChatHistoryItem = {
   role: "user" | "assistant";
   content: string;
@@ -210,6 +213,57 @@ const WORKOUT_LIBRARY: Record<string, Exercise[]> = {
   ],
 };
 
+const HOME_EXERCISES: Record<string, string[]> = {
+  back: ["One-arm dumbbell row", "Bent-over dumbbell row", "Dumbbell pullover", "Renegade row", "Gorilla row", "Rear-delt dumbbell fly", "Prone dumbbell row", "Suitcase carry"],
+  chest: ["Dumbbell floor press", "Alternating floor press", "Dumbbell squeeze press", "Push-up", "Close-grip push-up", "Deficit push-up on stable dumbbells", "Dumbbell floor fly", "Dumbbell pullover"],
+  shoulders: ["Dumbbell overhead press", "Arnold press", "Dumbbell lateral raise", "Bent-over reverse fly", "Dumbbell front raise", "Lean-away lateral raise", "Pike push-up", "Dumbbell Cuban raise"],
+  legs: ["Goblet squat", "Dumbbell Romanian deadlift", "Reverse lunge", "Bulgarian split squat", "Dumbbell sumo squat", "Step-up", "Weighted glute bridge", "Single-leg calf raise"],
+  quads: ["Goblet squat", "Heel-elevated goblet squat", "Bulgarian split squat", "Reverse lunge", "Step-up", "Tempo squat", "Cyclist squat", "Wall sit"],
+  hamstrings: ["Dumbbell Romanian deadlift", "Single-leg Romanian deadlift", "Slider leg curl", "Dumbbell good morning", "Glute-bridge walkout", "Single-leg hip hinge", "Hip thrust", "Long-lever glute bridge"],
+  glutes: ["Dumbbell hip thrust", "Weighted glute bridge", "Bulgarian split squat", "Reverse lunge", "Step-up", "Frog pump", "Single-leg glute bridge", "Dumbbell Romanian deadlift"],
+  biceps: ["Dumbbell curl", "Hammer curl", "Concentration curl", "Reverse curl", "Cross-body hammer curl", "Zottman curl", "Waiter curl", "Ninety-degree curl hold"],
+  triceps: ["Overhead dumbbell extension", "Dumbbell floor skull crusher", "Close-grip floor press", "Dumbbell kickback", "Diamond push-up", "Dumbbell Tate press", "Single-arm overhead extension", "Close-grip push-up"],
+  arms: ["Dumbbell curl", "Overhead dumbbell extension", "Hammer curl", "Close-grip floor press", "Concentration curl", "Dumbbell kickback", "Reverse curl", "Diamond push-up"],
+  core: ["Dead bug", "Side plank", "Dumbbell suitcase march", "Reverse crunch", "Plank dumbbell drag", "Bird dog", "Hollow hold", "Weighted sit-up"],
+  calves: ["Standing dumbbell calf raise", "Single-leg calf raise", "Bent-knee calf raise", "Dumbbell seated calf raise", "Tempo calf raise", "Calf iso hold", "Tibialis raise", "Farmer walk on toes"],
+  forearms: ["Dumbbell farmer carry", "Dumbbell reverse curl", "Hammer curl", "Dumbbell wrist curl", "Reverse wrist curl", "Suitcase carry", "Dumbbell pinch hold", "Dumbbell pronation and supination"],
+  "full body": ["Goblet squat", "Dumbbell Romanian deadlift", "Dumbbell floor press", "One-arm dumbbell row", "Dumbbell overhead press", "Reverse lunge", "Suitcase carry", "Dead bug"],
+};
+
+const BODYWEIGHT_EXERCISES: Record<string, string[]> = {
+  back: ["Prone Y raise", "Prone W raise", "Reverse snow angel", "Superman pulldown", "Self-resisted row", "Towel foot row", "Wall lat press", "Prone swimmer"],
+  chest: ["Push-up", "Knee push-up", "Incline push-up", "Feet-elevated push-up", "Wide push-up", "Close-grip push-up", "Paused push-up", "Slow-eccentric push-up"],
+  shoulders: ["Pike push-up", "Elevated pike push-up", "Wall slide", "Prone Y raise", "Prone T raise", "Scapular push-up", "Shoulder tap", "Down-dog press"],
+  legs: ["Tempo squat", "Reverse lunge", "Split squat", "Single-leg box squat", "Glute bridge", "Slider leg curl", "Wall sit", "Single-leg calf raise"],
+  quads: ["Tempo squat", "Reverse lunge", "Split squat", "Heel-elevated squat", "Step-up", "Wall sit", "Cyclist squat", "Squat iso hold"],
+  hamstrings: ["Single-leg hip hinge", "Slider leg curl", "Glute-bridge walkout", "Long-lever glute bridge", "Single-leg glute bridge", "Hip-hinge good morning", "Hamstring walkout", "Reverse plank"],
+  glutes: ["Glute bridge", "Single-leg glute bridge", "Reverse lunge", "Split squat", "Step-up", "Frog pump", "Quadruped hip extension", "Side-lying hip abduction"],
+  biceps: ["Self-resisted curl", "Towel foot curl", "Ninety-degree self-resisted hold", "Reverse self-resisted curl", "Cross-body self-resisted curl", "Slow self-resisted curl", "Single-arm towel curl", "Curl squeeze hold"],
+  triceps: ["Close-grip push-up", "Diamond push-up", "Knee diamond push-up", "Bodyweight triceps extension", "Bench triceps extension", "Paused close-grip push-up", "Slow-eccentric diamond push-up", "Triceps lockout hold"],
+  arms: ["Self-resisted curl", "Close-grip push-up", "Towel foot curl", "Diamond push-up", "Ninety-degree curl hold", "Bodyweight triceps extension", "Reverse self-resisted curl", "Paused close-grip push-up"],
+  core: ["Dead bug", "Side plank", "Reverse crunch", "Bird dog", "Hollow hold", "Plank", "Mountain climber", "Bear-plank shoulder tap"],
+  calves: ["Single-leg calf raise", "Straight-knee calf raise", "Bent-knee calf raise", "Tempo calf raise", "Calf iso hold", "Tibialis raise", "Calf pulse", "Tiptoe walk"],
+  forearms: ["Fist squeeze hold", "Self-resisted wrist curl", "Self-resisted reverse wrist curl", "Towel wring", "Finger extension spread", "Knuckle plank hold", "Wrist rotation", "Forearm squeeze hold"],
+  "full body": ["Tempo squat", "Push-up", "Reverse lunge", "Self-resisted row", "Pike push-up", "Glute bridge", "Dead bug", "Single-leg calf raise"],
+};
+
+function profilePrescription(profile: FitnessProfile, index: number) {
+  if (profile.goal === "strength" && index < 2) return profile.experience === "beginner" ? "3 × 5–8" : "4 × 4–6";
+  if (profile.experience === "beginner") return profile.goal === "muscle_gain" ? "2–3 × 8–12" : "2 × 10–15";
+  if (profile.goal === "muscle_gain") return index < 2 ? "3 × 6–10" : "3 × 10–15";
+  return index < 2 ? "3 × 8–12" : "2–3 × 12–15";
+}
+
+function exercisesForProfile(bodyPart: string, profile: FitnessProfile | null | undefined) {
+  if (!profile || profile.equipment === "full_gym") return [...WORKOUT_LIBRARY[bodyPart]];
+  const names = profile.equipment === "home_dumbbells" ? HOME_EXERCISES[bodyPart] : BODYWEIGHT_EXERCISES[bodyPart];
+  return names.map((name, index) => ({
+    name,
+    prescription: profilePrescription(profile, index),
+    cue: "Use a controlled, pain-free range and finish the set before technique breaks down.",
+  }));
+}
+
 export function extractBodyPart(text: string) {
   return BODY_PART_ALIASES.find(([pattern]) => pattern.test(text))?.[1] ?? null;
 }
@@ -264,7 +318,7 @@ export function isBodyPartWorkoutTurn(message: string, history: ChatHistoryItem[
   return Boolean(count && assistantAskedForCount && mostRecentBodyPart(earlier));
 }
 
-export function bodyPartWorkoutAnswer(message: string, history: ChatHistoryItem[]) {
+export function bodyPartWorkoutAnswer(message: string, history: ChatHistoryItem[], profile?: FitnessProfile | null) {
   const earlier = priorHistory(history, message);
   const bodyPart = extractBodyPart(message) ?? mostRecentBodyPart(earlier);
   if (!bodyPart) {
@@ -280,11 +334,24 @@ export function bodyPartWorkoutAnswer(message: string, history: ChatHistoryItem[
     return "Choose between 3 and 8 exercises so the session stays practical.";
   }
 
-  const exercises = WORKOUT_LIBRARY[bodyPart].slice(0, count);
-  const lines = exercises.map(
+  if (profile?.limitations) {
+    return `Your saved profile lists this limitation: “${profile.limitations}”. Before I build the session, tell me the exact movements, ranges or loads a qualified clinician or in-person coach has cleared. I won’t guess around a saved limitation.`;
+  }
+
+  const preferred = profile?.preferredExercises.toLowerCase().split(/[,;|]/).map((item) => item.trim()).filter(Boolean) ?? [];
+  const exercises = exercisesForProfile(bodyPart, profile);
+  if (preferred.length) exercises.sort((a, b) => Number(preferred.some((item) => b.name.toLowerCase().includes(item))) - Number(preferred.some((item) => a.name.toLowerCase().includes(item))));
+  const selected = exercises.slice(0, count);
+  const lines = selected.map(
     (exercise, index) => `${index + 1}. ${exercise.name} — ${exercise.prescription}\n   Cue: ${exercise.cue}`,
   );
-  return `${bodyPart.toUpperCase()} WORKOUT — ${count} EXERCISES\n\n${lines.join("\n\n")}\n\nRest 2–3 minutes after the first heavy compound movement and 60–90 seconds after the remaining work. Keep about 2 good reps in reserve, use controlled technique, and stop any movement that causes sharp or worsening pain.`;
+  const profileLine = profile
+    ? `PROFILE APPLIED — ${fitnessGoalLabels[profile.goal]} · ${profile.experience} · ${equipmentLabels[profile.equipment]} · ${profile.sessionMinutes} minutes\n\n`
+    : "";
+  const equipmentNote = profile?.equipment === "bodyweight" && /back|biceps|forearms/.test(bodyPart)
+    ? "\n\nEQUIPMENT NOTE — Pulling muscles are difficult to load well without equipment. A secure pull-up bar or resistance band would expand your options."
+    : "";
+  return `${bodyPart.toUpperCase()} WORKOUT — ${count} EXERCISES\n\n${profileLine}${lines.join("\n\n")}\n\nRest 2–3 minutes after the first heavy compound movement and 60–90 seconds after the remaining work. Keep about 2 good reps in reserve, use controlled technique, and stop any movement that causes sharp or worsening pain.${equipmentNote}`;
 }
 
 export function commonGymAnswer(message: string) {

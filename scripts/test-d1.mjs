@@ -72,6 +72,23 @@ try {
   const guestId = await createConversation(guestA, "Guest device workout");
   assert.ok((await guestA("/api/conversations")).conversations.some((item) => item.id === guestId));
   assert.ok(!(await guestB("/api/conversations")).conversations.some((item) => item.id === guestId));
+  const savedProfile = {
+    goal: "muscle_gain",
+    experience: "intermediate",
+    daysPerWeek: 4,
+    sessionMinutes: 60,
+    equipment: "full_gym",
+    limitations: "",
+    preferredExercises: "bench press, Romanian deadlift",
+  };
+  const guestProfile = await guestA("/api/profile", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(savedProfile),
+  });
+  assert.equal(guestProfile.scope, "guest");
+  assert.equal(guestProfile.profile.goal, "muscle_gain");
+  assert.equal((await guestB("/api/profile")).profile, null);
 
   const accountEmail = `coach-${crypto.randomUUID()}@example.com`;
   const accountHeaders = {
@@ -85,6 +102,9 @@ try {
   const upgraded = await accountDeviceA("/api/conversations");
   assert.equal(upgraded.scope, "account");
   assert.ok(upgraded.conversations.some((item) => item.id === guestId));
+  const adoptedProfile = await accountDeviceA("/api/profile");
+  assert.equal(adoptedProfile.scope, "account");
+  assert.equal(adoptedProfile.profile.daysPerWeek, 4);
   const accountId = await createConversation(accountDeviceA, "Account strength chat");
   const chat = await sendChat(accountDeviceA, accountId, "Estimate my 1RM from 80 kg x 5 reps.", "account-initial");
   assert.equal(chat.persisted, true);
@@ -93,8 +113,15 @@ try {
   assert.equal(synced.scope, "account");
   assert.ok(synced.conversations.some((item) => item.id === guestId));
   assert.ok(synced.conversations.some((item) => item.id === accountId));
+  assert.equal((await accountDeviceB("/api/profile")).profile.preferredExercises, savedProfile.preferredExercises);
   const loaded = await accountDeviceB(`/api/conversations/${accountId}`);
   assert.equal(loaded.conversation.messages.length, 2);
+
+  const profilePlanId = await createConversation(accountDeviceB, "Profile-aware plan");
+  const profilePlan = await sendChat(accountDeviceB, profilePlanId, "Build my workout plan using my saved profile.", "profile-aware-plan");
+  assert.match(profilePlan.answer, /^YOUR 4-DAY MUSCLE-BUILDING PLAN/);
+  assert.match(profilePlan.answer, /PREFERENCES — Prioritised where compatible/);
+  assert.ok(profilePlan.trace.includes("Applied saved fitness profile"));
 
   const simultaneous = await Promise.all([
     sendChat(accountDeviceA, accountId, "Estimate my 1RM from 90 kg x 5 reps.", "account-device-a"),
@@ -107,6 +134,7 @@ try {
 
   const otherAccount = apiClient({ "oai-authenticated-user-email": `other-${crypto.randomUUID()}@example.com` });
   assert.ok(!(await otherAccount("/api/conversations")).conversations.some((item) => item.id === accountId));
+  assert.equal((await otherAccount("/api/profile")).profile, null);
 
   const renamed = await accountDeviceB(`/api/conversations/${accountId}`, {
     method: "PATCH",
@@ -146,7 +174,7 @@ try {
   assert.equal(limited.status, 429);
   assert.ok(Number(limited.headers.get("retry-after")) >= 1);
 
-  console.log("Verified ownership, concurrent ordering, latest-history loading, and distributed D1 rate limiting.");
+  console.log("Verified profile adoption, ownership, profile-aware coaching, concurrent ordering, latest-history loading, and distributed D1 rate limiting.");
 } finally {
   if (server.exitCode === null) server.kill("SIGTERM");
   await Promise.race([once(server, "exit"), new Promise((resolve) => setTimeout(resolve, 5_000))]);

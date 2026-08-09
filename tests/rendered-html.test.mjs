@@ -51,6 +51,8 @@ test("renders professional metadata, team details and security headers", async (
   assert.match(html, /Sign in \/ Sign up/);
   assert.match(html, /CHOOSE A COACHING WORKFLOW/);
   assert.match(html, /I want to train a body part today/);
+  assert.match(html, /Set up training profile/);
+  assert.match(html, /Set up profile/);
 });
 
 test("renders an account-synced workspace from trusted ChatGPT identity headers", async () => {
@@ -138,19 +140,32 @@ test("rejects malformed and oversized requests", async () => {
   assert.equal(malformed.status, 400);
   assert.equal(oversized.response.status, 400);
   assert.match(oversized.data.error, /2,000 characters/);
+
+  const invalidProfile = await appFetch("/api/profile", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ goal: "muscle_gain", experience: "beginner", daysPerWeek: 7, sessionMinutes: 60, equipment: "full_gym", limitations: "", preferredExercises: "" }),
+  });
+  assert.equal(invalidProfile.status, 400);
+  assert.match((await invalidProfile.json()).error, /between 2 and 6/);
 });
 
 test("packages the durable multi-chat schema and fails safely without D1", async () => {
   const migrationDirectory = new URL("../dist/.openai/drizzle/", import.meta.url);
-  const migrationName = (await readdir(migrationDirectory)).find((name) => name.endsWith(".sql"));
-  assert.ok(migrationName, "a SQL migration should be packaged with the deployment");
-  const migration = await readFile(new URL(migrationName, migrationDirectory), "utf8");
+  const migrationNames = (await readdir(migrationDirectory)).filter((name) => name.endsWith(".sql"));
+  assert.ok(migrationNames.length, "SQL migrations should be packaged with the deployment");
+  const migration = (await Promise.all(migrationNames.map((name) => readFile(new URL(name, migrationDirectory), "utf8")))).join("\n");
   assert.match(migration, /CREATE TABLE `conversations`/);
   assert.match(migration, /CREATE TABLE `messages`/);
+  assert.match(migration, /CREATE TABLE `fitness_profiles`/);
   assert.match(migration, /ON DELETE cascade/);
 
   const response = await appFetch("/api/conversations");
   assert.equal(response.status, 503);
   assert.match(response.headers.get("set-cookie") ?? "", /aura_device=device_/);
   assert.deepEqual(await response.json(), { error: "Conversation storage is unavailable" });
+
+  const profileResponse = await appFetch("/api/profile");
+  assert.equal(profileResponse.status, 503);
+  assert.deepEqual(await profileResponse.json(), { error: "Profile storage is unavailable" });
 });

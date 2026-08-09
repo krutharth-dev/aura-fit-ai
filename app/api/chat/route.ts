@@ -5,7 +5,8 @@ import {
   type ChatHistoryItem,
 } from "./workouts";
 import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
-import { adoptGuestConversations, consumeRateLimit, historyDatabase, historyIdentity, historyJson, rateLimitKey, saveExchange } from "../../../db/history";
+import { adoptGuestConversations, consumeRateLimit, historyDatabase, historyIdentity, historyJson, loadFitnessProfile, rateLimitKey, saveExchange } from "../../../db/history";
+import { fitnessProfileContext, type FitnessProfile } from "../../../lib/fitness-profile";
 
 type ChatRequest = { message?: unknown; history?: unknown; thread_id?: unknown; conversation_id?: unknown };
 type CoachPayload = { answer: string; route: string; source: string; trace?: string[] };
@@ -149,14 +150,16 @@ function recoveryAnswer(message: string) {
   return "Normal muscle soreness is usually diffuse, tender and improves as you warm up; injury-type pain is more likely sharp, localised, worsening or associated with swelling, weakness or altered movement.\n\nFor today: assess whether your warm-up restores normal movement and performance. If soreness is mild, train with reduced load or choose another muscle group. If performance is clearly reduced, take another recovery day. Prioritise sleep, adequate food and hydration, and avoid adding extra volume until recovery is consistent.";
 }
 
-function demoAnswer(message: string, route: string) {
+function demoAnswer(message: string, route: string, profile?: FitnessProfile | null) {
   if (route === "calculator") {
     return trainingCalculation(message) ?? "For a 1RM estimate, use a format like “100 kg × 5 reps”. I can also handle ordinary arithmetic such as “20 * 2.5”.";
   }
-  if (route === "program") return deterministicProgramAnswer(message);
+  if (route === "program") return deterministicProgramAnswer(message, profile);
   if (route === "exercise") return exerciseAnswer(message);
   if (route === "recovery") return recoveryAnswer(message);
-  return "I can help you build a complete program, understand an exercise, plan progression, estimate a 1RM, or think through recovery. For the best starting point, tell me your goal, experience, training days, session length, equipment and any limitations.";
+  return profile
+    ? `Your saved fitness profile is active, so I’ll automatically use your ${profile.daysPerWeek}-day schedule, ${profile.sessionMinutes}-minute sessions, equipment and training preferences. Ask me to build a program, plan today’s workout, explain an exercise, calculate training numbers or review recovery.`
+    : "I can help you build a complete program, understand an exercise, plan progression, estimate a 1RM, or think through recovery. For the best starting point, tell me your goal, experience, training days, session length, equipment and any limitations.";
 }
 
 function responseTrace(route: string, finalStep: string) {
@@ -263,6 +266,13 @@ export async function POST(request: Request) {
       return identity ? historyJson({ error: "Conversation storage is unavailable" }, identity, { status: 503 }) : Response.json({ error: "Conversation storage is unavailable" }, { status: 503 });
     }
     if (conversationId && identity && persistenceDb) await adoptGuestConversations(persistenceDb, identity);
+    const savedProfile = conversationId && identity && persistenceDb
+      ? await loadFitnessProfile(persistenceDb, identity.ownerId)
+      : null;
+    const savedProfileContext = savedProfile ? fitnessProfileContext(savedProfile) : null;
+    const profileAwareMessage = savedProfileContext
+      ? `${message}\n\nSaved fitness profile (apply unless the user explicitly overrides a field):\n${savedProfileContext}`
+      : message;
     const respond = async (payload: CoachPayload) => {
       if (!conversationId || !identity || !persistenceDb) return Response.json(payload);
       let persisted = false;
@@ -281,14 +291,14 @@ export async function POST(request: Request) {
     }
 
     const bodyPartAnswer = isBodyPartWorkoutTurn(message, history)
-      ? bodyPartWorkoutAnswer(message, history)
+      ? bodyPartWorkoutAnswer(message, history, savedProfile)
       : null;
     if (bodyPartAnswer) {
       return respond({
         answer: bodyPartAnswer,
         route: "program",
         source: "AURA FIT body-part workout engine · Session memory",
-        trace: ["Assessed training request", "Matched guided body-part workout flow", "Read this conversation’s recent turns", "Advanced the workout one step"],
+        trace: ["Assessed training request", "Matched guided body-part workout flow", "Read this conversation’s recent turns", ...(savedProfile ? ["Applied saved fitness profile"] : []), "Advanced the workout one step"],
       });
     }
 
@@ -317,7 +327,7 @@ export async function POST(request: Request) {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            message,
+            message: profileAwareMessage,
             history,
             thread_id: threadId,
           }),
@@ -330,16 +340,16 @@ export async function POST(request: Request) {
 
     if (!apiKey) {
       return respond({
-        answer: demoAnswer(message, route),
+        answer: demoAnswer(message, route, savedProfile),
         route,
         source: route === "exercise" ? "Local exercise library · Demo-safe mode" : "AURA FIT coach engine · Demo-safe mode",
-        trace: route === "program" ? ["Assessed training request", ...programTrace(message), "Returned deterministic demo-safe plan"] : responseTrace(route, "Used deterministic demo-safe coaching"),
+        trace: route === "program" ? ["Assessed training request", ...programTrace(message, savedProfile), "Returned deterministic demo-safe plan"] : ["Assessed training request", ...(savedProfile ? ["Applied saved fitness profile"] : []), `Selected ${route} route`, "Used deterministic demo-safe coaching"],
       });
     }
 
-    const localProgram = route === "program" ? deterministicProgramAnswer(message) : null;
+    const localProgram = route === "program" ? deterministicProgramAnswer(message, savedProfile) : null;
     if (localProgram && (/^I can personalise/.test(localProgram) || /^I won’t guess/.test(localProgram))) {
-      return respond({ answer: localProgram, route, source: "AURA FIT program profile guard", trace: ["Assessed training request", ...programTrace(message)] });
+      return respond({ answer: localProgram, route, source: "AURA FIT program profile guard", trace: ["Assessed training request", ...programTrace(message, savedProfile)] });
     }
 
     const response = await boundedFetch("https://api.groq.com/openai/v1/chat/completions", {
@@ -349,16 +359,16 @@ export async function POST(request: Request) {
         model: process.env.GROQ_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
         temperature: 0.3,
         max_completion_tokens: 1000,
-        messages: [{ role: "system", content: route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold exactly; do not change its day count, equipment or session length:\n${localProgram}` : SYSTEM_PROMPT }, ...history],
+        messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold exactly; do not change its day count, equipment or session length:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
       }),
     });
 
     if (!response.ok) {
-      return respond({ answer: demoAnswer(message, route), route, source: "AURA FIT coach engine · API fallback", trace: responseTrace(route, "Used local fallback after upstream error") });
+      return respond({ answer: demoAnswer(message, route, savedProfile), route, source: "AURA FIT coach engine · API fallback", trace: responseTrace(route, "Used local fallback after upstream error") });
     }
     const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
     return respond({
-      answer: data.choices?.[0]?.message?.content ?? demoAnswer(message, route),
+      answer: data.choices?.[0]?.message?.content ?? demoAnswer(message, route, savedProfile),
       route,
       source: route === "exercise" ? "Groq · Exercise context" : "Groq · Fitness coach route",
       trace: responseTrace(route, "Generated a live grounded response"),

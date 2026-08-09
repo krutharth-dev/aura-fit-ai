@@ -1,3 +1,5 @@
+import type { FitnessProfile } from "../../../lib/fitness-profile";
+
 type Goal = "muscle" | "strength" | "fitness" | "fat-loss";
 type Experience = "beginner" | "intermediate" | "advanced";
 type Equipment = "gym" | "home" | "bodyweight";
@@ -8,6 +10,7 @@ type Profile = {
   days: number;
   minutes: number;
   equipment: Equipment;
+  preferredExercises: string;
 };
 
 type Session = { title: string; patterns: string[] };
@@ -72,26 +75,32 @@ const MOVEMENTS: Record<Equipment, Record<string, string>> = {
   },
 };
 
-function parseProfile(message: string): { profile?: Profile; missing?: string[]; limited?: boolean } {
+function parseProfile(message: string, savedProfile?: FitnessProfile | null): { profile?: Profile; missing?: string[]; limited?: boolean } {
   const text = message.toLowerCase();
   const goal: Goal | undefined = /muscle|hypertrophy|gain/.test(text) ? "muscle"
     : /strength|power/.test(text) ? "strength"
       : /fat.?loss|lose weight/.test(text) ? "fat-loss"
-        : /fitness|endurance|health/.test(text) ? "fitness" : undefined;
+        : /fitness|endurance|health/.test(text) ? "fitness"
+          : savedProfile ? ({ muscle_gain: "muscle", fat_loss: "fat-loss", strength: "strength", general_fitness: "fitness" } as const)[savedProfile.goal] : undefined;
   const experience: Experience | undefined = /beginner|novice|new to/.test(text) ? "beginner"
     : /intermediate/.test(text) ? "intermediate"
-      : /advanced/.test(text) ? "advanced" : undefined;
+      : /advanced/.test(text) ? "advanced" : savedProfile?.experience;
   const wordDays: Record<string, number> = { two: 2, three: 3, four: 4, five: 5, six: 6 };
   const dayMatch = text.match(/\b([2-6])\s*(?:-| )?days?\b/);
   const wordDay = Object.entries(wordDays).find(([word]) => new RegExp(`\\b${word}[- ]day`).test(text))?.[1];
-  const days = Number(dayMatch?.[1] ?? wordDay ?? 0);
-  const minutes = Number(text.match(/\b(\d{2,3})\s*(?:-| )?(?:minutes?|mins?)\b/)?.[1] ?? 0);
+  const days = Number(dayMatch?.[1] ?? wordDay ?? savedProfile?.daysPerWeek ?? 0);
+  const minutes = Number(text.match(/\b(\d{2,3})\s*(?:-| )?(?:minutes?|mins?)\b/)?.[1] ?? savedProfile?.sessionMinutes ?? 0);
   const equipment: Equipment | undefined = /bodyweight|no equipment/.test(text) ? "bodyweight"
     : /home|dumbbell/.test(text) ? "home"
-      : /full gym|gym access|barbell|machine/.test(text) ? "gym" : undefined;
-  const limitationSpecified = /\bnone\b|pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)|pain|injur|limitation|restriction|recent surgery|pregnan/.test(text);
-  const reportsLimitation = /pain|injur|limitation|restriction|recent surgery|pregnan/.test(text)
-    && !/pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text);
+      : /full gym|gym access|barbell|machine/.test(text) ? "gym"
+        : savedProfile ? ({ full_gym: "gym", home_dumbbells: "home", bodyweight: "bodyweight" } as const)[savedProfile.equipment] : undefined;
+  const limitationPattern = /\bnone\b|pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)|pain|injur|limitation|restriction|recent surgery|pregnan/;
+  const explicitLimitation = limitationPattern.test(text);
+  const limitationSpecified = explicitLimitation || Boolean(savedProfile);
+  const reportsLimitation = explicitLimitation
+    ? /pain|injur|limitation|restriction|recent surgery|pregnan/.test(text)
+      && !/pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text)
+    : Boolean(savedProfile?.limitations);
   const missing = [
     !goal && "main goal",
     !experience && "experience level",
@@ -102,7 +111,7 @@ function parseProfile(message: string): { profile?: Profile; missing?: string[];
   ].filter((value): value is string => Boolean(value));
   if (missing.length) return { missing };
   if (reportsLimitation) return { limited: true };
-  return { profile: { goal: goal!, experience: experience!, days, minutes, equipment: equipment! } };
+  return { profile: { goal: goal!, experience: experience!, days, minutes, equipment: equipment!, preferredExercises: savedProfile?.preferredExercises ?? "" } };
 }
 
 function prescription(profile: Profile, pattern: string) {
@@ -116,8 +125,8 @@ function goalLabel(goal: Goal) {
   return goal === "muscle" ? "MUSCLE-BUILDING" : goal === "fat-loss" ? "FAT-LOSS SUPPORT" : goal.toUpperCase();
 }
 
-export function programAnswer(message: string) {
-  const parsed = parseProfile(message);
+export function programAnswer(message: string, savedProfile?: FitnessProfile | null) {
+  const parsed = parseProfile(message, savedProfile);
   if (parsed.missing) {
     return `I can personalise that, but I still need: ${parsed.missing.join(", ")}.\n\nSend everything in one line, for example: “Muscle gain, intermediate, 4 days, 60 minutes, full gym, no limitations.”`;
   }
@@ -126,21 +135,25 @@ export function programAnswer(message: string) {
   }
   const profile = parsed.profile!;
   const exerciseLimit = profile.minutes < 45 ? 4 : profile.minutes < 70 ? 5 : 6;
+  const preferred = profile.preferredExercises.toLowerCase().split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
   const days = SCHEDULES[profile.days].map((session, dayIndex) => {
-    const exercises = session.patterns.slice(0, exerciseLimit).map((pattern, index) =>
-      `${index + 1}. ${MOVEMENTS[profile.equipment][pattern]} — ${prescription(profile, pattern)}`,
+    const selected = session.patterns.map((pattern) => ({ pattern, movement: MOVEMENTS[profile.equipment][pattern] }));
+    if (preferred.length) selected.sort((a, b) => Number(preferred.some((item) => b.movement.toLowerCase().includes(item))) - Number(preferred.some((item) => a.movement.toLowerCase().includes(item))));
+    const exercises = selected.slice(0, exerciseLimit).map(({ pattern, movement }, index) =>
+      `${index + 1}. ${movement} — ${prescription(profile, pattern)}`,
     );
     return `DAY ${dayIndex + 1} — ${session.title}\n${exercises.join("\n")}`;
   });
   const recovery = profile.days >= 5
     ? "Place at least one rest day after every 2–3 consecutive sessions."
     : "Keep at least one recovery day between repeated full-body or lower-body sessions.";
-  return `YOUR ${profile.days}-DAY ${goalLabel(profile.goal)} PLAN\n\nPROFILE — ${profile.experience} · ${profile.minutes} minutes · ${profile.equipment} · no limitations reported\n\n${days.join("\n\n")}\n\nEFFORT — Keep most working sets around 2 reps in reserve. ${recovery}\n\nPROGRESSION — Add reps within the range first. When every set reaches the top with stable technique, add the smallest practical load.`;
+  const preferenceLine = profile.preferredExercises ? `\nPREFERENCES — Prioritised where compatible: ${profile.preferredExercises}` : "";
+  return `YOUR ${profile.days}-DAY ${goalLabel(profile.goal)} PLAN\n\nPROFILE — ${profile.experience} · ${profile.minutes} minutes · ${profile.equipment} · no limitations reported${preferenceLine}\n\n${days.join("\n\n")}\n\nEFFORT — Keep most working sets around 2 reps in reserve. ${recovery}\n\nPROGRESSION — Add reps within the range first. When every set reaches the top with stable technique, add the smallest practical load.`;
 }
 
-export function programTrace(message: string) {
-  const parsed = parseProfile(message);
+export function programTrace(message: string, savedProfile?: FitnessProfile | null) {
+  const parsed = parseProfile(message, savedProfile);
   if (parsed.missing) return ["Selected program route", `Requested ${parsed.missing.length} missing profile detail(s)`];
   if (parsed.limited) return ["Selected program route", "Detected a reported limitation", "Stopped before unsafe plan generation"];
-  return ["Selected program route", `Validated ${parsed.profile!.days} sessions`, `Applied ${parsed.profile!.equipment} equipment constraints`, `Fitted exercises to ${parsed.profile!.minutes} minutes`];
+  return ["Selected program route", ...(savedProfile ? ["Applied saved fitness profile"] : []), `Validated ${parsed.profile!.days} sessions`, `Applied ${parsed.profile!.equipment} equipment constraints`, `Fitted exercises to ${parsed.profile!.minutes} minutes`];
 }
