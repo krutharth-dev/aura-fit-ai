@@ -9,9 +9,10 @@ const candidates = isWindows
 
 let python = null;
 for (const [command, prefix] of candidates) {
-  const probe = spawnSync(command, [...prefix, "--version"], { stdio: "ignore" });
-  if (probe.status === 0) {
+  const probe = spawnSync(command, [...prefix, "-c", "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')"], { encoding: "utf8" });
+  if (probe.status === 0 && /^(3\.11|3\.12)$/.test(probe.stdout.trim())) {
     python = { command, prefix };
+    console.log(`Using Python ${probe.stdout.trim()}.`);
     break;
   }
 }

@@ -1,0 +1,10 @@
+{
+  "name": "AURA FIT — AI Training Coach",
+  "short_name": "AURA FIT",
+  "description": "Personalised workout programming with transparent routing and safety guardrails.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#090a0e",
+  "theme_color": "#090a0e",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
