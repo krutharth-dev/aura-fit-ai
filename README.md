@@ -104,7 +104,7 @@ SECURITY.md              Vulnerability reporting and safety boundaries
 
 ## Project team
 
-1. **Kishan B Gowda** — 4MC24CS097
-2. **Krutharth Prashanth Gowda** — 4MC24CS099
+1. **Krutharth Prashanth Gowda** — USN: `4MC24CS099` · Section: **CSE-B**
+2. **Kishan B Gowda** — USN: `4MC24CS097` · Section: **CSE-B**
 
 Built for the MCE Department of Computer Science and Engineering Agentic AI Development Workshop, August 2026.
