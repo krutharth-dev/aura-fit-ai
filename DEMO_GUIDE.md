@@ -28,7 +28,7 @@ Ask `I have chest pain, but how long should I rest between sets?` Explain that u
 
 ### 2:25–3:00 — explain the architecture honestly
 
-Open **How it works**. Say: “The public app uses a deterministic TypeScript coaching engine, managed identity and D1 account history so it remains reliable without exposing secrets. The full local version adds FastAPI, LangGraph, ChromaDB and optional Groq generation. Both return the chosen route, source and execution trace.”
+Open **How it works**. Point out the completed project-team details and repository link. Say: “The public app uses a deterministic TypeScript coaching engine, managed identity and D1 account history so it remains reliable without exposing secrets. The full local version adds FastAPI, LangGraph, ChromaDB and optional Groq generation. Both return the chosen route, source and execution trace.”
 
 ## Full-agent local demo
 
@@ -55,5 +55,6 @@ Run `npm run dev:full`, then repeat the form prompt `Explain squat form`. Show t
 - Confirm the requested plan contains the exact day count.
 - Expand at least one agent trace.
 - Confirm guest mode and the managed sign-in/sign-up entry point both render.
+- Confirm both team members, corrected USNs, section CSE-B and the repository link render under **How it works**.
 - Keep `.env.local` private.
 - Keep the repository and hosted link ready as separate evidence.

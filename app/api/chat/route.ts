@@ -5,7 +5,17 @@ import {
   type ChatHistoryItem,
 } from "./workouts";
 import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
-import { adoptGuestConversations, consumeRateLimit, historyDatabase, historyIdentity, historyJson, loadFitnessProfile, rateLimitKey, saveExchange } from "../../../db/history";
+import {
+  consumeRateLimit,
+  historyDatabase,
+  historyIdentity,
+  historyJson,
+  loadFitnessProfile,
+  rateLimitKey,
+  recordOperationalError,
+  recordUsageEvent,
+  saveExchange,
+} from "../../../db/history";
 import { fitnessProfileContext, type FitnessProfile } from "../../../lib/fitness-profile";
 
 type ChatRequest = { message?: unknown; history?: unknown; thread_id?: unknown; conversation_id?: unknown };
@@ -231,6 +241,8 @@ async function boundedFetch(input: string, init: RequestInit, timeoutMs = 12_000
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  let requestIdentity: Awaited<ReturnType<typeof historyIdentity>> | null = null;
   try {
     const rateLimit = await rateLimitState(request);
     if (rateLimit.limited) {
@@ -260,13 +272,16 @@ export async function POST(request: Request) {
     if (conversationId && !/^chat_[a-f0-9-]{36}$/.test(conversationId)) {
       return Response.json({ error: "Invalid conversation" }, { status: 400 });
     }
-    const identity = conversationId ? await historyIdentity(request) : null;
+    const identity = await historyIdentity(request);
+    requestIdentity = identity;
+    if (conversationId && identity.authType !== "account") {
+      return historyJson({ error: "Sign in to save and access conversation history" }, identity, { status: 401 });
+    }
     const persistenceDb = conversationId ? await historyDatabase() : null;
     if (conversationId && !persistenceDb) {
-      return identity ? historyJson({ error: "Conversation storage is unavailable" }, identity, { status: 503 }) : Response.json({ error: "Conversation storage is unavailable" }, { status: 503 });
+      return historyJson({ error: "Conversation storage is unavailable" }, identity, { status: 503 });
     }
-    if (conversationId && identity && persistenceDb) await adoptGuestConversations(persistenceDb, identity);
-    const savedProfile = conversationId && identity && persistenceDb
+    const savedProfile = conversationId && persistenceDb
       ? await loadFitnessProfile(persistenceDb, identity.ownerId)
       : null;
     const savedProfileContext = savedProfile ? fitnessProfileContext(savedProfile) : null;
@@ -274,7 +289,17 @@ export async function POST(request: Request) {
       ? `${message}\n\nSaved fitness profile (apply unless the user explicitly overrides a field):\n${savedProfileContext}`
       : message;
     const respond = async (payload: CoachPayload) => {
-      if (!conversationId || !identity || !persistenceDb) return Response.json(payload);
+      const eventDb = persistenceDb ?? await historyDatabase().catch(() => null);
+      if (eventDb) {
+        await recordUsageEvent(eventDb, {
+          eventName: "chat_response",
+          route: payload.route,
+          authType: identity.authType,
+          statusCode: 200,
+          durationMs: Date.now() - startedAt,
+        }).catch(() => undefined);
+      }
+      if (!conversationId || !persistenceDb) return historyJson(payload, identity);
       let persisted = false;
       try {
         persisted = await saveExchange(persistenceDb, identity.ownerId, conversationId, message, {
@@ -282,6 +307,12 @@ export async function POST(request: Request) {
         });
       } catch {
         persisted = false;
+        await recordOperationalError(persistenceDb, {
+          area: "persistence",
+          code: "save_exchange_failed",
+          route: payload.route,
+          authType: identity.authType,
+        }).catch(() => undefined);
       }
       return historyJson({ ...payload, persisted }, identity);
     };
@@ -333,8 +364,15 @@ export async function POST(request: Request) {
           }),
         });
         if (agentResponse.ok) return respond(await agentResponse.json() as CoachPayload);
+        const eventDb = persistenceDb ?? await historyDatabase().catch(() => null);
+        if (eventDb) await recordOperationalError(eventDb, {
+          area: "python_backend", code: "upstream_http_error", route, authType: identity.authType,
+        }).catch(() => undefined);
       } catch {
-        // Continue to direct Groq or the deterministic demo-safe route.
+        const eventDb = persistenceDb ?? await historyDatabase().catch(() => null);
+        if (eventDb) await recordOperationalError(eventDb, {
+          area: "python_backend", code: "upstream_unavailable", route, authType: identity.authType,
+        }).catch(() => undefined);
       }
     }
 
@@ -352,18 +390,31 @@ export async function POST(request: Request) {
       return respond({ answer: localProgram, route, source: "AURA FIT program profile guard", trace: ["Assessed training request", ...programTrace(message, savedProfile)] });
     }
 
-    const response = await boundedFetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: process.env.GROQ_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
-        temperature: 0.3,
-        max_completion_tokens: 1000,
-        messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold exactly; do not change its day count, equipment or session length:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
-      }),
-    });
+    let response: Response;
+    try {
+      response = await boundedFetch("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: process.env.GROQ_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
+          temperature: 0.3,
+          max_completion_tokens: 1000,
+          messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold exactly; do not change its day count, equipment or session length:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
+        }),
+      });
+    } catch {
+      const eventDb = persistenceDb ?? await historyDatabase().catch(() => null);
+      if (eventDb) await recordOperationalError(eventDb, {
+        area: "groq", code: "upstream_unavailable", route, authType: identity.authType,
+      }).catch(() => undefined);
+      return respond({ answer: demoAnswer(message, route, savedProfile), route, source: "AURA FIT coach engine · API fallback", trace: responseTrace(route, "Used local fallback after upstream error") });
+    }
 
     if (!response.ok) {
+      const eventDb = persistenceDb ?? await historyDatabase().catch(() => null);
+      if (eventDb) await recordOperationalError(eventDb, {
+        area: "groq", code: `upstream_http_${response.status}`, route, authType: identity.authType,
+      }).catch(() => undefined);
       return respond({ answer: demoAnswer(message, route, savedProfile), route, source: "AURA FIT coach engine · API fallback", trace: responseTrace(route, "Used local fallback after upstream error") });
     }
     const data = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
@@ -374,6 +425,11 @@ export async function POST(request: Request) {
       trace: responseTrace(route, "Generated a live grounded response"),
     });
   } catch {
+    const identity = requestIdentity ?? await historyIdentity(request).catch(() => null);
+    const db = await historyDatabase().catch(() => null);
+    if (identity && db) await recordOperationalError(db, {
+      area: "chat_route", code: "unhandled_request_error", authType: identity.authType,
+    }).catch(() => undefined);
     return Response.json({ error: "Unable to process this request" }, { status: 500 });
   }
 }

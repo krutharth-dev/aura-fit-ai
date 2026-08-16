@@ -41,3 +41,28 @@ export const fitnessProfiles = sqliteTable("fitness_profiles", {
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [index("fitness_profiles_updated_idx").on(table.updatedAt)]);
+
+export const usageEvents = sqliteTable("usage_events", {
+  id: text("id").primaryKey(),
+  eventName: text("event_name").notNull(),
+  route: text("route").notNull(),
+  authType: text("auth_type", { enum: ["account", "guest"] }).notNull(),
+  statusCode: integer("status_code").notNull(),
+  durationMs: integer("duration_ms").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("usage_events_created_idx").on(table.createdAt),
+  index("usage_events_name_created_idx").on(table.eventName, table.createdAt),
+]);
+
+export const errorEvents = sqliteTable("error_events", {
+  id: text("id").primaryKey(),
+  area: text("area").notNull(),
+  code: text("code").notNull(),
+  route: text("route").notNull(),
+  authType: text("auth_type", { enum: ["account", "guest"] }).notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [
+  index("error_events_created_idx").on(table.createdAt),
+  index("error_events_code_created_idx").on(table.code, table.createdAt),
+]);
