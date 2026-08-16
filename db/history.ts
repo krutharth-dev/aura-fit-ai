@@ -37,14 +37,18 @@ export type ConversationSummary = {
 
 export type HistoryIdentity = {
   ownerId: string;
-  deviceId: string;
   authType: "account" | "guest";
   user: { displayName: string; email: string } | null;
-  setCookie: string | null;
 };
 
-const COOKIE_NAME = "aura_device";
-const DEVICE_PATTERN = /^device_[a-f0-9-]{36}$/;
+export type ObservabilitySummary = {
+  since: number;
+  totals: { pageViews: number; chatResponses: number; errors: number; averageChatMs: number; maxChatMs: number };
+  routes: Array<{ route: string; count: number }>;
+  errorCodes: Array<{ code: string; area: string; count: number; lastSeenAt: number }>;
+};
+
+const OBSERVABILITY_RETENTION_MS = 30 * 24 * 60 * 60 * 1_000;
 let schemaReady: Promise<void> | null = null;
 
 function database() {
@@ -95,17 +99,33 @@ async function ensureSchema(db: D1DatabaseLike) {
         updated_at INTEGER NOT NULL
       )`),
       db.prepare("CREATE INDEX IF NOT EXISTS fitness_profiles_updated_idx ON fitness_profiles (updated_at)"),
+      db.prepare(`CREATE TABLE IF NOT EXISTS usage_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        event_name TEXT NOT NULL,
+        route TEXT NOT NULL,
+        auth_type TEXT NOT NULL,
+        status_code INTEGER NOT NULL,
+        duration_ms INTEGER NOT NULL,
+        created_at INTEGER NOT NULL
+      )`),
+      db.prepare("CREATE INDEX IF NOT EXISTS usage_events_created_idx ON usage_events (created_at)"),
+      db.prepare("CREATE INDEX IF NOT EXISTS usage_events_name_created_idx ON usage_events (event_name, created_at)"),
+      db.prepare(`CREATE TABLE IF NOT EXISTS error_events (
+        id TEXT PRIMARY KEY NOT NULL,
+        area TEXT NOT NULL,
+        code TEXT NOT NULL,
+        route TEXT NOT NULL,
+        auth_type TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )`),
+      db.prepare("CREATE INDEX IF NOT EXISTS error_events_created_idx ON error_events (created_at)"),
+      db.prepare("CREATE INDEX IF NOT EXISTS error_events_code_created_idx ON error_events (code, created_at)"),
     ]).then(() => undefined).catch((error) => {
       schemaReady = null;
       throw error;
     });
   }
   await schemaReady;
-}
-
-function cookieValue(request: Request, name: string) {
-  const cookie = request.headers.get("cookie") ?? "";
-  return cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(`${name}=`))?.slice(name.length + 1) ?? null;
 }
 
 function fullNameFromRequest(request: Request) {
@@ -121,35 +141,24 @@ async function accountOwnerId(email: string) {
 }
 
 export async function historyIdentity(request: Request): Promise<HistoryIdentity> {
-  const existing = cookieValue(request, COOKIE_NAME);
-  const deviceId = existing && DEVICE_PATTERN.test(existing) ? existing : `device_${crypto.randomUUID()}`;
-  const setCookie = existing && DEVICE_PATTERN.test(existing)
-    ? null
-    : `${COOKIE_NAME}=${deviceId}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000${new URL(request.url).protocol === "https:" ? "; Secure" : ""}`;
   const email = request.headers.get("oai-authenticated-user-email")?.trim().toLowerCase();
   if (email) {
     const fullName = fullNameFromRequest(request);
     return {
       ownerId: await accountOwnerId(email),
-      deviceId,
       authType: "account",
       user: { displayName: fullName || email, email },
-      setCookie,
     };
   }
   return {
-    ownerId: deviceId,
-    deviceId,
+    ownerId: "",
     authType: "guest",
     user: null,
-    setCookie,
   };
 }
 
 export function historyJson(payload: unknown, identity: HistoryIdentity, init: ResponseInit = {}) {
-  const headers = new Headers(init.headers);
-  if (identity.setCookie) headers.set("Set-Cookie", identity.setCookie);
-  return Response.json(payload, { ...init, headers });
+  return Response.json(payload, init);
 }
 
 export async function historyDatabase() {
@@ -189,20 +198,6 @@ export async function consumeRateLimit(db: D1DatabaseLike, bucketKey: string, li
     limited: count > limit,
     retryAfterSeconds: Math.max(1, Math.ceil((activeResetAt - now) / 1_000)),
   };
-}
-
-export async function adoptGuestConversations(db: D1DatabaseLike, identity: HistoryIdentity) {
-  if (identity.authType !== "account" || identity.ownerId === identity.deviceId) return;
-  await db.batch([
-    db.prepare("UPDATE conversations SET device_id = ? WHERE device_id = ?").bind(identity.ownerId, identity.deviceId),
-    db.prepare(`INSERT OR IGNORE INTO fitness_profiles (
-      owner_id, goal, experience, days_per_week, session_minutes, equipment,
-      limitations, preferred_exercises, created_at, updated_at
-    ) SELECT ?, goal, experience, days_per_week, session_minutes, equipment,
-      limitations, preferred_exercises, created_at, updated_at
-      FROM fitness_profiles WHERE owner_id = ?`).bind(identity.ownerId, identity.deviceId),
-    db.prepare("DELETE FROM fitness_profiles WHERE owner_id = ?").bind(identity.deviceId),
-  ]);
 }
 
 export async function loadFitnessProfile(db: D1DatabaseLike, ownerId: string): Promise<FitnessProfile | null> {
@@ -357,4 +352,91 @@ export async function saveExchange(
       .bind(suggestedTitle, now + 1, conversationId, ownerId),
   ]);
   return true;
+}
+
+function safeMetricValue(value: string, fallback: string) {
+  const normalized = value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "_").slice(0, 48);
+  return normalized || fallback;
+}
+
+async function maybePruneObservability(db: D1DatabaseLike, id: string, now: number) {
+  if (Number.parseInt(id.slice(-2), 16) >= 8) return;
+  const cutoff = now - OBSERVABILITY_RETENTION_MS;
+  await db.batch([
+    db.prepare("DELETE FROM usage_events WHERE created_at < ?").bind(cutoff),
+    db.prepare("DELETE FROM error_events WHERE created_at < ?").bind(cutoff),
+  ]);
+}
+
+export async function recordUsageEvent(
+  db: D1DatabaseLike,
+  event: { eventName: string; route?: string; authType: HistoryIdentity["authType"]; statusCode?: number; durationMs?: number },
+) {
+  const id = crypto.randomUUID().replaceAll("-", "");
+  const now = Date.now();
+  await db.prepare(`INSERT INTO usage_events
+      (id, event_name, route, auth_type, status_code, duration_ms, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?)`)
+    .bind(
+      `usage_${id}`,
+      safeMetricValue(event.eventName, "unknown"),
+      safeMetricValue(event.route ?? "none", "none"),
+      event.authType,
+      Math.max(100, Math.min(599, Math.round(event.statusCode ?? 200))),
+      Math.max(0, Math.min(120_000, Math.round(event.durationMs ?? 0))),
+      now,
+    ).run();
+  await maybePruneObservability(db, id, now);
+}
+
+export async function recordOperationalError(
+  db: D1DatabaseLike,
+  event: { area: string; code: string; route?: string; authType: HistoryIdentity["authType"] },
+) {
+  const id = crypto.randomUUID().replaceAll("-", "");
+  const now = Date.now();
+  await db.prepare(`INSERT INTO error_events
+      (id, area, code, route, auth_type, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)`)
+    .bind(
+      `error_${id}`,
+      safeMetricValue(event.area, "application"),
+      safeMetricValue(event.code, "unknown_error"),
+      safeMetricValue(event.route ?? "none", "none"),
+      event.authType,
+      now,
+    ).run();
+  await maybePruneObservability(db, id, now);
+}
+
+export async function loadObservabilitySummary(db: D1DatabaseLike, since = Date.now() - 7 * 24 * 60 * 60 * 1_000): Promise<ObservabilitySummary> {
+  const [totalsResult, routeResult, errorResult] = await Promise.all([
+    db.prepare(`SELECT
+        SUM(CASE WHEN event_name = 'page_view' THEN 1 ELSE 0 END) AS page_views,
+        SUM(CASE WHEN event_name = 'chat_response' THEN 1 ELSE 0 END) AS chat_responses,
+        AVG(CASE WHEN event_name = 'chat_response' THEN duration_ms END) AS average_chat_ms,
+        MAX(CASE WHEN event_name = 'chat_response' THEN duration_ms END) AS max_chat_ms
+      FROM usage_events WHERE created_at >= ?`).bind(since).first<{
+        page_views: number | null; chat_responses: number | null; average_chat_ms: number | null; max_chat_ms: number | null;
+      }>(),
+    db.prepare(`SELECT route, COUNT(*) AS count FROM usage_events
+      WHERE created_at >= ? AND event_name = 'chat_response'
+      GROUP BY route ORDER BY count DESC LIMIT 12`).bind(since).all<{ route: string; count: number }>(),
+    db.prepare(`SELECT code, area, COUNT(*) AS count, MAX(created_at) AS last_seen_at
+      FROM error_events WHERE created_at >= ?
+      GROUP BY code, area ORDER BY last_seen_at DESC LIMIT 20`).bind(since).all<{ code: string; area: string; count: number; last_seen_at: number }>(),
+  ]);
+  const errorTotal = errorResult.results.reduce((sum, row) => sum + Number(row.count), 0);
+  return {
+    since,
+    totals: {
+      pageViews: Number(totalsResult?.page_views ?? 0),
+      chatResponses: Number(totalsResult?.chat_responses ?? 0),
+      errors: errorTotal,
+      averageChatMs: Math.round(Number(totalsResult?.average_chat_ms ?? 0)),
+      maxChatMs: Number(totalsResult?.max_chat_ms ?? 0),
+    },
+    routes: routeResult.results.map((row) => ({ route: row.route, count: Number(row.count) })),
+    errorCodes: errorResult.results.map((row) => ({ code: row.code, area: row.area, count: Number(row.count), lastSeenAt: Number(row.last_seen_at) })),
+  };
 }

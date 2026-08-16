@@ -5,7 +5,7 @@ import { once } from "node:events";
 const port = 4500 + Math.floor(Math.random() * 400);
 const base = `http://127.0.0.1:${port}`;
 const server = spawn(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
-  env: { ...process.env, NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
+  env: { ...process.env, ADMIN_EMAILS: "owner@example.com", GROQ_API_KEY: "", NO_PROXY: "127.0.0.1,localhost", no_proxy: "127.0.0.1,localhost" },
   stdio: ["ignore", "pipe", "pipe"],
 });
 
@@ -22,7 +22,8 @@ function apiClient(identityHeaders = {}) {
     const response = await fetch(`${base}${path}`, { ...init, headers });
     const setCookie = response.headers.get("set-cookie");
     if (setCookie) cookie = setCookie.split(";", 1)[0];
-    const body = await response.json();
+    const responseText = await response.text();
+    const body = responseText ? JSON.parse(responseText) : null;
     if (!response.ok) throw new Error(`${response.status} ${JSON.stringify(body)}`);
     return body;
   };
@@ -66,12 +67,17 @@ async function sendChat(client, conversationId, message, clientIp) {
 try {
   await waitForServer();
 
-  const guestAHeaders = {};
-  const guestA = apiClient(guestAHeaders);
-  const guestB = apiClient();
-  const guestId = await createConversation(guestA, "Guest device workout");
-  assert.ok((await guestA("/api/conversations")).conversations.some((item) => item.id === guestId));
-  assert.ok(!(await guestB("/api/conversations")).conversations.some((item) => item.id === guestId));
+  const guestHistory = await fetch(`${base}/api/conversations`);
+  assert.equal(guestHistory.status, 401);
+  assert.match((await guestHistory.json()).error, /Sign in/);
+  const guestChat = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "cf-connecting-ip": "guest-session" },
+    body: JSON.stringify({ message: "How long should I rest between sets?", history: [] }),
+  });
+  assert.equal(guestChat.status, 200);
+  const guestChatBody = await guestChat.json();
+  assert.equal("persisted" in guestChatBody, false);
   const savedProfile = {
     goal: "muscle_gain",
     experience: "intermediate",
@@ -81,37 +87,34 @@ try {
     limitations: "",
     preferredExercises: "bench press, Romanian deadlift",
   };
-  const guestProfile = await guestA("/api/profile", {
+  const guestProfile = await fetch(`${base}/api/profile`, {
     method: "PUT",
     headers: { "content-type": "application/json" },
     body: JSON.stringify(savedProfile),
   });
-  assert.equal(guestProfile.scope, "guest");
-  assert.equal(guestProfile.profile.goal, "muscle_gain");
-  assert.equal((await guestB("/api/profile")).profile, null);
+  assert.equal(guestProfile.status, 401);
 
-  const accountEmail = `coach-${crypto.randomUUID()}@example.com`;
+  const accountEmail = "owner@example.com";
   const accountHeaders = {
     "oai-authenticated-user-email": accountEmail,
     "oai-authenticated-user-full-name": "Verified%20Coach",
     "oai-authenticated-user-full-name-encoding": "percent-encoded-utf-8",
   };
-  Object.assign(guestAHeaders, accountHeaders);
-  const accountDeviceA = guestA;
+  const accountDeviceA = apiClient(accountHeaders);
   const accountDeviceB = apiClient(accountHeaders);
-  const upgraded = await accountDeviceA("/api/conversations");
-  assert.equal(upgraded.scope, "account");
-  assert.ok(upgraded.conversations.some((item) => item.id === guestId));
-  const adoptedProfile = await accountDeviceA("/api/profile");
-  assert.equal(adoptedProfile.scope, "account");
-  assert.equal(adoptedProfile.profile.daysPerWeek, 4);
+  const accountProfile = await accountDeviceA("/api/profile", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(savedProfile),
+  });
+  assert.equal(accountProfile.scope, "account");
+  assert.equal(accountProfile.profile.daysPerWeek, 4);
   const accountId = await createConversation(accountDeviceA, "Account strength chat");
   const chat = await sendChat(accountDeviceA, accountId, "Estimate my 1RM from 80 kg x 5 reps.", "account-initial");
   assert.equal(chat.persisted, true);
 
   const synced = await accountDeviceB("/api/conversations");
   assert.equal(synced.scope, "account");
-  assert.ok(synced.conversations.some((item) => item.id === guestId));
   assert.ok(synced.conversations.some((item) => item.id === accountId));
   assert.equal((await accountDeviceB("/api/profile")).profile.preferredExercises, savedProfile.preferredExercises);
   const loaded = await accountDeviceB(`/api/conversations/${accountId}`);
@@ -135,6 +138,10 @@ try {
   const otherAccount = apiClient({ "oai-authenticated-user-email": `other-${crypto.randomUUID()}@example.com` });
   assert.ok(!(await otherAccount("/api/conversations")).conversations.some((item) => item.id === accountId));
   assert.equal((await otherAccount("/api/profile")).profile, null);
+  const crossAccountRead = await fetch(`${base}/api/conversations/${accountId}`, {
+    headers: { "oai-authenticated-user-email": `other-${crypto.randomUUID()}@example.com` },
+  });
+  assert.equal(crossAccountRead.status, 404);
 
   const renamed = await accountDeviceB(`/api/conversations/${accountId}`, {
     method: "PATCH",
@@ -174,7 +181,15 @@ try {
   assert.equal(limited.status, 429);
   assert.ok(Number(limited.headers.get("retry-after")) >= 1);
 
-  console.log("Verified profile adoption, ownership, profile-aware coaching, concurrent ordering, latest-history loading, and distributed D1 rate limiting.");
+  await accountDeviceA("/api/analytics", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ event: "page_view" }),
+  });
+  const health = await accountDeviceA("/api/health");
+  assert.equal(health.storage, "available");
+  assert.equal(health.coachMode, "safe-fallback");
+  console.log("Verified signed-in-only history, cross-account isolation, profile-aware coaching, observability, ordering, and D1 rate limiting.");
 } finally {
   if (server.exitCode === null) server.kill("SIGTERM");
   await Promise.race([once(server, "exit"), new Promise((resolve) => setTimeout(resolve, 5_000))]);

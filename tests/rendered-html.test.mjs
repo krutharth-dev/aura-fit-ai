@@ -53,6 +53,8 @@ test("renders professional metadata, team details and security headers", async (
   assert.match(html, /I want to train a body part today/);
   assert.match(html, /Set up training profile/);
   assert.match(html, /Set up profile/);
+  assert.match(html, /Guest chats are not saved/);
+  assert.match(html, /Privacy/);
 });
 
 test("renders an account-synced workspace from trusted ChatGPT identity headers", async () => {
@@ -68,8 +70,18 @@ test("renders an account-synced workspace from trusted ChatGPT identity headers"
   assert.equal(response.status, 200);
   assert.match(html, /AURA Member/);
   assert.match(html, /ACCOUNT SYNC ACTIVE/);
-  assert.match(html, /All devices/);
+  assert.match(html, /This account/);
   assert.doesNotMatch(html, /Sign in \/ Sign up/);
+});
+
+test("publishes a formal privacy policy with account-isolation and observability disclosures", async () => {
+  const response = await appFetch("/privacy", { headers: { accept: "text/html" } });
+  const html = await response.text();
+  assert.equal(response.status, 200);
+  assert.match(html, /Privacy Policy/);
+  assert.match(html, /Account isolation/);
+  assert.match(html, /Analytics and error monitoring/);
+  assert.match(html, /guest conversations are temporary/i);
 });
 
 test("builds the exact requested 2-day and 6-day plans", async () => {
@@ -143,7 +155,7 @@ test("rejects malformed and oversized requests", async () => {
 
   const invalidProfile = await appFetch("/api/profile", {
     method: "PUT",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", "oai-authenticated-user-email": "profile@example.com" },
     body: JSON.stringify({ goal: "muscle_gain", experience: "beginner", daysPerWeek: 7, sessionMinutes: 60, equipment: "full_gym", limitations: "", preferredExercises: "" }),
   });
   assert.equal(invalidProfile.status, 400);
@@ -158,14 +170,25 @@ test("packages the durable multi-chat schema and fails safely without D1", async
   assert.match(migration, /CREATE TABLE `conversations`/);
   assert.match(migration, /CREATE TABLE `messages`/);
   assert.match(migration, /CREATE TABLE `fitness_profiles`/);
+  assert.match(migration, /CREATE TABLE `usage_events`/);
+  assert.match(migration, /CREATE TABLE `error_events`/);
+  assert.match(migration, /DELETE FROM `conversations` WHERE `device_id` LIKE 'device_%'/);
   assert.match(migration, /ON DELETE cascade/);
 
   const response = await appFetch("/api/conversations");
-  assert.equal(response.status, 503);
-  assert.match(response.headers.get("set-cookie") ?? "", /aura_device=device_/);
-  assert.deepEqual(await response.json(), { error: "Conversation storage is unavailable" });
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.deepEqual(await response.json(), { error: "Sign in to access saved conversations" });
+
+  const accountResponse = await appFetch("/api/conversations", { headers: { "oai-authenticated-user-email": "history@example.com" } });
+  assert.equal(accountResponse.status, 503);
+  assert.deepEqual(await accountResponse.json(), { error: "Conversation storage is unavailable" });
 
   const profileResponse = await appFetch("/api/profile");
-  assert.equal(profileResponse.status, 503);
-  assert.deepEqual(await profileResponse.json(), { error: "Profile storage is unavailable" });
+  assert.equal(profileResponse.status, 401);
+  assert.deepEqual(await profileResponse.json(), { error: "Sign in to access a saved fitness profile" });
+
+  const accountProfileResponse = await appFetch("/api/profile", { headers: { "oai-authenticated-user-email": "profile@example.com" } });
+  assert.equal(accountProfileResponse.status, 503);
+  assert.deepEqual(await accountProfileResponse.json(), { error: "Profile storage is unavailable" });
 });

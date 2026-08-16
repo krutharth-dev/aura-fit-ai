@@ -17,7 +17,7 @@ AURA FIT is a safety-aware agentic fitness coach that creates personalised worko
 - Route, source and execution-trace visibility
 - Durable multi-conversation history in Cloudflare D1
 - Managed ChatGPT sign-in/sign-up with account-owned, cross-device history
-- Guided fitness profiles saved per account or guest device and applied automatically to coaching
+- Guided fitness profiles saved per authenticated account and applied automatically to coaching
 - Saved-chat switching, automatic titles, rename and delete controls
 - Six purpose-built coaching workflows and searchable conversation history
 - Responsive, keyboard-accessible hosted interface
@@ -28,10 +28,12 @@ AURA FIT is a safety-aware agentic fitness coach that creates personalised worko
 
 | Mode | Runtime | Purpose |
 |---|---|---|
-| Hosted app | TypeScript coach + ChatGPT identity + Cloudflare D1 | Reliable coaching with secure account sync and guest mode |
+| Hosted app | TypeScript coach + ChatGPT identity + Cloudflare D1 | Reliable coaching with account-isolated history and temporary guest sessions |
 | Full local agent | FastAPI + LangGraph + ChromaDB + optional Groq | Complete workshop architecture and open-ended generation |
 
-The hosted app does not pretend that the Python agent is running. Its **How it works** panel clearly separates the two modes. Guests receive an anonymous, secure browser workspace. Users who continue with ChatGPT receive account-owned history and a fitness profile that follow them across signed-in devices without AURA FIT storing passwords; guest chats and the guest profile from the signing-in browser are safely attached to that account.
+The hosted app does not pretend that the Python agent is running. Its **How it works** panel clearly separates the two modes. Guests can use a temporary session without durable history. Users who continue with ChatGPT receive account-owned history and a fitness profile that follow them across signed-in devices without AURA FIT storing passwords. Every history operation is authorised server-side against a one-way account ownership key.
+
+Privacy-safe first-party observability records aggregate page views, coaching routes, timing and sanitised error codes for up to 30 days. It never records chat text, email addresses, account identifiers, IP addresses or fitness details. The owner-only `/admin` console displays these operational signals, `/api/health` reports storage and coach mode, and `/privacy` contains the published policy.
 
 ## Architecture
 
@@ -85,7 +87,7 @@ npm run test:python
 npm audit --omit=dev
 ```
 
-The test suite verifies saved-profile validation and guest-to-account adoption, profile-aware program generation, exact day counts, equipment and time constraints, limitation refusal, multi-turn memory, guest isolation, signed-in cross-device database sync, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
+The test suite verifies signed-in-only durable history, cross-account isolation, saved-profile validation, profile-aware program generation, exact day counts, equipment and time constraints, limitation refusal, multi-turn memory, signed-in cross-device database sync, privacy-safe observability, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
 
 ## Project structure
 
@@ -101,6 +103,14 @@ scripts/                 Cross-platform setup and release validation
 DEMO_GUIDE.md            Three-minute demonstration and viva guide
 SECURITY.md              Vulnerability reporting and safety boundaries
 ```
+
+## Production configuration
+
+- `GROQ_API_KEY` — optional secret for open-ended Groq responses; without it the deterministic safe coach remains available.
+- `GROQ_MODEL` — optional Groq model override.
+- `ADMIN_EMAILS` — comma-separated signed-in account emails allowed to open the private observability console.
+
+Hosted values must be configured through the deployment platform and must never be committed. A custom domain is attached through Sites after its DNS hostname is known.
 
 ## Project team
 

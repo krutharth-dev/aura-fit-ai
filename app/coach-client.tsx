@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   defaultFitnessProfile,
   equipmentLabels,
@@ -86,24 +87,25 @@ type AccountUser = { displayName: string; email: string };
 
 type CoachClientProps = {
   user: AccountUser | null;
+  isAdmin: boolean;
   signInPath: string;
   signOutPath: string;
 };
 
-export default function CoachClient({ user, signInPath, signOutPath }: CoachClientProps) {
+export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: CoachClientProps) {
   const [messages, setMessages] = useState<Message[]>(freshMessages);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [input, setInput] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
   const [loading, setLoading] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(Boolean(user));
   const [historyNotice, setHistoryNotice] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [openTrace, setOpenTrace] = useState<string | null>(null);
   const [profile, setProfile] = useState<FitnessProfile | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(Boolean(user));
   const [profileOpen, setProfileOpen] = useState(false);
   const [profileStep, setProfileStep] = useState(0);
   const [profileDraft, setProfileDraft] = useState<FitnessProfileInput>(defaultFitnessProfile);
@@ -116,6 +118,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
   });
 
   useEffect(() => {
+    if (!user) return;
     let active = true;
     void (async () => {
       try {
@@ -140,8 +143,9 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
       }
     })();
     return () => { active = false; };
-  }, []);
+  }, [user]);
   useEffect(() => {
+    if (!user) return;
     let active = true;
     void (async () => {
       try {
@@ -156,10 +160,18 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
       }
     })();
     return () => { active = false; };
+  }, [user]);
+  useEffect(() => {
+    void fetch("/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ event: "page_view" }),
+    }).catch(() => undefined);
   }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   async function fetchConversations() {
+    if (!user) return [];
     const response = await fetch("/api/conversations", { headers: { Accept: "application/json" } });
     const data = await response.json() as { conversations?: ConversationSummary[]; error?: string };
     if (!response.ok) throw new Error(data.error || "Could not load saved chats");
@@ -169,7 +181,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
   }
 
   async function loadConversation(id: string, closeSidebar = true) {
-    if (loading) return;
+    if (loading || !user) return;
     setHistoryNotice(null);
     const response = await fetch(`/api/conversations/${encodeURIComponent(id)}`, { headers: { Accept: "application/json" } });
     const data = await response.json() as { conversation?: { id: string; messages: Message[] }; error?: string };
@@ -195,6 +207,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
   }
 
   async function ensureConversation(firstMessage: string) {
+    if (!user) return null;
     if (activeConversationId) return activeConversationId;
     const response = await fetch("/api/conversations", {
       method: "POST",
@@ -225,8 +238,8 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
         body: JSON.stringify({
           message: clean,
           history: nextMessages.slice(-10).map(({ role, content }) => ({ role, content })),
-          thread_id: conversationId,
-          conversation_id: conversationId,
+          thread_id: conversationId ?? `guest_${newMessageId()}`,
+          ...(conversationId ? { conversation_id: conversationId } : {}),
         }),
       });
       const data = await response.json() as { answer?: string; route?: string; source?: string; trace?: string[]; persisted?: boolean; error?: string };
@@ -235,8 +248,8 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
         id: newMessageId(), role: "assistant", content: data.answer ?? "No answer was returned.",
         route: data.route, source: data.source, trace: data.trace,
       }]);
-      if (data.persisted === false) setHistoryNotice("The answer was generated, but this exchange could not be saved. Please try again.");
-      else await fetchConversations();
+      if (user && data.persisted === false) setHistoryNotice("The answer was generated, but this exchange could not be saved. Please try again.");
+      else if (user) await fetchConversations();
     } catch (error) {
       const text = error instanceof Error ? error.message : "Please try again";
       setMessages((current) => [...current, { id: newMessageId(), role: "assistant", content: `I couldn’t complete that request: ${text}`, route: "general", source: "Request error" }]);
@@ -272,6 +285,10 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
   function onSubmit(event: FormEvent) { event.preventDefault(); void sendMessage(input); }
 
   function openProfile() {
+    if (!user) {
+      window.location.assign(signInPath);
+      return;
+    }
     setProfileDraft(profile ? {
       goal: profile.goal,
       experience: profile.experience,
@@ -325,7 +342,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
         </label>
 
         <nav className="conversation-list" aria-label="Saved conversation history">
-          <p className="nav-label">{user ? "YOUR CHATS" : "GUEST CHATS"}</p>
+          <p className="nav-label">{user ? "YOUR CHATS" : "SIGN IN TO SAVE"}</p>
           {historyLoading ? <p className="history-empty">Loading your conversations…</p> : filteredConversations.length ? filteredConversations.map((conversation) => (
             <div className="history-entry" key={conversation.id}>
               <button className={`history-item ${conversation.id === activeConversationId ? "active" : ""}`} onClick={() => void loadConversation(conversation.id)}>
@@ -337,13 +354,13 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
                 <button onClick={() => void removeChat(conversation)} aria-label={`Delete ${conversation.title}`} title="Delete">×</button>
               </div>
             </div>
-          )) : <p className="history-empty">{conversations.length ? "No conversations match your search." : "No saved chats yet. Your next conversation will appear here automatically."}</p>}
+          )) : <p className="history-empty">{user ? (conversations.length ? "No conversations match your search." : "No saved chats yet. Your next conversation will appear here automatically.") : "Guest conversations are temporary. Sign in to keep private history linked only to your account."}</p>}
         </nav>
 
         <div className="system-card">
-          <div className="system-card-top"><span className="pulse"><i /></span><span>{user ? "ACCOUNT SYNC ACTIVE" : "GUEST MODE"}</span></div>
-          <div className="system-metric"><span>Conversation memory</span><strong>Durable</strong></div>
-          <div className="system-metric"><span>History scope</span><strong>{user ? "All devices" : "This browser"}</strong></div>
+          <div className="system-card-top"><span className="pulse"><i /></span><span>{user ? "ACCOUNT SYNC ACTIVE" : "PRIVATE GUEST SESSION"}</span></div>
+          <div className="system-metric"><span>Conversation memory</span><strong>{user ? "Durable" : "Not stored"}</strong></div>
+          <div className="system-metric"><span>History scope</span><strong>{user ? "This account" : "Current session"}</strong></div>
           <button className={`profile-launch ${profile ? "complete" : ""}`} onClick={openProfile} disabled={profileLoading}>
             <span>{profile ? "✓" : "+"}</span>
             <span><strong>{profile ? "Training profile active" : "Set up training profile"}</strong><small>{profile ? `${fitnessGoalLabels[profile.goal]} · ${profile.daysPerWeek} days` : "Personalise every workout"}</small></span>
@@ -354,8 +371,8 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
         <div className={`account-card ${user ? "signed-in" : "guest"}`}>
           <div className="account-avatar">{user ? initials(user.displayName) : "G"}</div>
           <div className="account-copy">
-            <strong>{user ? user.displayName : "Guest workspace"}</strong>
-            <small>{user ? user.email : "History stays on this browser"}</small>
+            <strong>{user ? user.displayName : "Guest session"}</strong>
+            <small>{user ? user.email : "No durable history"}</small>
           </div>
           {user
             ? <a href={signOutPath} className="account-action" title="Sign out" aria-label="Sign out">↗</a>
@@ -367,7 +384,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
       <section className="chat-panel">
         <header className="topbar">
           <button className="menu-button" onClick={() => setHistoryOpen(true)} aria-label="Open navigation">☰</button>
-          <div className="agent-heading"><div className="agent-orb"><span>✦</span></div><div><h1>AURA FIT <em>PRO</em></h1><p><span className="online-dot" /> COACH ONLINE <i /> {user ? "ACCOUNT SYNCED" : "GUEST WORKSPACE"}</p></div></div>
+          <div className="agent-heading"><div className="agent-orb"><span>✦</span></div><div><h1>AURA FIT <em>PRO</em></h1><p><span className="online-dot" /> COACH ONLINE <i /> {user ? "ACCOUNT SYNCED" : "TEMPORARY SESSION"}</p></div></div>
           <div className="topbar-actions">
             {!user && <a className="topbar-signin" href={signInPath}>Sign in</a>}
             <button className="profile-button" onClick={openProfile}>{profile ? "Edit profile" : "Set up profile"}</button>
@@ -375,9 +392,14 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
           </div>
         </header>
 
-        {showDetails && <div className="architecture-panel" id="architecture-panel">
+        {showDetails && <div className="architecture-panel" id="architecture-panel" role="region" aria-label="How AURA FIT works">
           <strong>COACHING ENGINE</strong><span>Workout planning, technique, progression, strength calculations and recovery routing</span><i />
-          <strong>SECURE MEMORY</strong><span>{user ? "Account-owned chat history synced across signed-in devices" : "Private guest history stored for this browser"}</span>
+          <strong>SECURE MEMORY</strong><span>{user ? "Account-owned chat history synced across signed-in devices" : "Guest messages are not retained as durable history"}</span>
+          <div className="architecture-team">
+            <strong>PROJECT TEAM</strong>
+            <span>Krutharth Prashanth Gowda <b>4MC24CS099 · CSE-B</b><em>•</em>Kishan B Gowda <b>4MC24CS097 · CSE-B</b></span>
+            <a href="https://github.com/krutharth-dev/aura-fit-ai" target="_blank" rel="noreferrer">GitHub repository ↗</a>
+          </div>
         </div>}
 
         {historyNotice && <div className="history-notice" role="status"><span>{historyNotice}</span><button onClick={() => setHistoryNotice(null)} aria-label="Dismiss notice">×</button></div>}
@@ -398,7 +420,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
                   {openTrace === message.id && <ol className="trace-list">{message.trace.map((step) => <li key={step}>{step}</li>)}</ol>}
                 </div> : null}
                 {index === 0 && messages.length === 1 && <>
-                  {!user && <div className="sync-banner"><div><strong>Keep your training history everywhere</strong><span>Sign in or create an account to access your chats across devices.</span></div><a href={signInPath}>Continue with ChatGPT</a></div>}
+                  {!user && <div className="sync-banner"><div><strong>Private account-only history</strong><span>Guest chats disappear after this session. Sign in to save conversations that only your account can access.</span></div><a href={signInPath}>Sign in / Sign up</a></div>}
                   {!profileLoading && !profile && <div className="profile-banner"><div className="profile-banner-icon">◎</div><div><strong>Make every answer personal</strong><span>Set your goal, schedule, equipment and limitations once. AURA FIT will use them automatically in future chats.</span></div><button onClick={openProfile}>Build my profile</button></div>}
                   {profile && <div className="profile-active-strip"><span>✓</span><strong>PROFILE ACTIVE</strong><em>{fitnessGoalLabels[profile.goal]} · {profile.daysPerWeek} days · {profile.sessionMinutes} min · {equipmentLabels[profile.equipment]}</em><button onClick={openProfile}>Edit</button></div>}
                   <p className="prompt-heading">CHOOSE A COACHING WORKFLOW</p>
@@ -416,7 +438,7 @@ export default function CoachClient({ user, signInPath, signOutPath }: CoachClie
             <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSubmit(event as unknown as FormEvent); } }} placeholder="Ask about workouts, form, progression or recovery..." rows={1} aria-label="Message AURA FIT" />
             <button type="submit" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
           </form>
-          <p className="composer-note"><span>✦</span> {user ? "Chats securely sync to your account" : "Guest chats are saved on this browser"} · Educational guidance, not medical diagnosis <i /> Enter to send</p>
+          <p className="composer-note"><span>✦</span> {user ? "Chats securely sync only to your account" : "Guest chats are not saved"} · Educational guidance, not medical diagnosis <i /> <Link href="/privacy">Privacy</Link>{isAdmin && <> · <Link href="/admin">Owner console</Link></>} · Enter to send</p>
         </div>
       </section>
 
