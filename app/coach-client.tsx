@@ -38,7 +38,7 @@ const starterPrompts = [
   { label: "Improve my form", prompt: "Explain deadlift form with setup, execution, common mistakes and an easier regression.", icon: "03", category: "TECHNIQUE" },
   { label: "Plan progression", prompt: "How should I progress my main lifts when I reach the top of my rep range?", icon: "04", category: "PROGRESSION" },
   { label: "Calculate strength", prompt: "Estimate my 1RM from 100 kg x 5 reps.", icon: "05", category: "CALCULATOR" },
-  { label: "Check recovery", prompt: "My legs are sore two days after training. Should I train them again today?", icon: "06", category: "RECOVERY" },
+  { label: "Check recovery", prompt: "I am still sore two days after training. Should I train again today?", icon: "06", category: "RECOVERY" },
 ];
 
 const bodyPartReplies = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Arms", "Quads", "Hamstrings", "Glutes", "Legs", "Calves", "Core", "Forearms", "Full body"];
