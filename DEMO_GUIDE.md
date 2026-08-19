@@ -48,6 +48,8 @@ Run `npm run dev:full`, then repeat the form prompt `Explain squat form`. Show t
 
 **What works offline?** Routing, body-part workouts, program scaffolds, common gym questions, form guidance, recovery screening, nutrition and supplement fundamentals, non-diagnostic health guidance and calculations.
 
+**Free-text workout route:** Ask `How should I combine running with leg training?`, `What should I do when my bench press plateaus?` or `What can replace a barbell deadlift at home?`. The evaluator should see practical guidance from the `training` route even when the live model is unavailable.
+
 **Is it open source?** Yes. The public repository includes an MIT License, so the code can be used, modified and distributed while retaining the licence notice.
 
 **How is safety handled?** The coach does not diagnose or prescribe rehabilitation. It refuses to guess around reported limitations and escalates urgent symptoms ahead of other intents.

@@ -306,7 +306,7 @@ export function isBodyPartWorkoutTurn(message: string, history: ChatHistoryItem[
   const earlier = priorHistory(history, message);
   const bodyPart = extractBodyPart(message);
   const asksForWorkout = /\b(?:workout|train|training|session|routine|exercises?|variations?|movements?|today)\b/i.test(message);
-  const formQuestion = /\b(?:form|technique|how (?:do|to)|pain|injury)\b/i.test(message);
+  const formQuestion = /\b(?:form|technique|how (?:do|to|should)|combine|cardio|running|cycling|conditioning|plateau|stuck|pain|injury)\b/i.test(message);
   if (startsBodyPartWorkout(message)) return true;
   if (bodyPart && asksForWorkout && !formQuestion) return true;
   if (bodyPart && asksToChooseBodyPart(earlier)) return true;

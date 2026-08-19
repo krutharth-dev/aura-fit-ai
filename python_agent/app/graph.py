@@ -78,6 +78,7 @@ class AuraFitAgent:
             builder.add_node("calculator", self._calculator_node)
             builder.add_node("nutrition", self._nutrition_node)
             builder.add_node("health", self._health_node)
+            builder.add_node("training", self._training_node)
             builder.add_node("general", self._general_node)
             builder.add_edge(START, "router")
             builder.add_conditional_edges(
@@ -90,17 +91,18 @@ class AuraFitAgent:
                     "calculator": "calculator",
                     "nutrition": "nutrition",
                     "health": "health",
+                    "training": "training",
                     "general": "general",
                 },
             )
-            for node in ("program", "exercise", "recovery", "calculator", "nutrition", "health", "general"):
+            for node in ("program", "exercise", "recovery", "calculator", "nutrition", "health", "training", "general"):
                 builder.add_edge(node, END)
             return builder.compile(checkpointer=MemorySaver())
         except ImportError:
             return None
 
     @staticmethod
-    def choose_route(question: str) -> Literal["program", "exercise", "recovery", "calculator", "nutrition", "health", "general"]:
+    def choose_route(question: str) -> Literal["program", "exercise", "recovery", "calculator", "nutrition", "health", "training", "general"]:
         text = question.lower()
         if re.search(r"chest pain|faint|severe.*breath|new.*numb|new.*weak|major.*injur|sharp|worsening|swelling|cannot bear|can.t bear", text):
             return "recovery"
@@ -118,6 +120,8 @@ class AuraFitAgent:
             return "program"
         if common_gym_answer(question):
             return "general"
+        if re.search(r"workout|training|gym|cardio|running|cycling|conditioning|calisthenic|bodyweight|mobility|warm.?up|flexibility|plateau|stuck|progress|volume|frequency|sets|reps|rpe|rir|failure|substitut|alternative|replace|hotel|travel", text):
+            return "training"
         if re.search(r"form|technique|how (?:do|to)|exercise|squat|bench|deadlift|row|pulldown|press|curl|lunge|hinge|pull.?up", text):
             return "exercise"
         return "general"
@@ -280,6 +284,39 @@ class AuraFitAgent:
             "trace": state.get("trace", []) + ["Applied health safety screen", "Generated non-diagnostic guidance"],
         }
 
+    def _training_node(self, state: AgentState) -> AgentState:
+        text = state["question"].lower()
+        context, source = self._context_for(state["question"])
+        system = (
+            "You are AURA FIT's broad workout coach. Answer open-ended questions about strength, hypertrophy, "
+            "cardio, calisthenics, mobility, progression, exercise selection and equipment substitutions. Give a "
+            "practical structure and ask only for details that materially improve personalisation. CONTEXT:\n" + context
+        )
+        answer = self.llm.complete(system, state["question"], state.get("history"))
+        if not answer and re.search(r"plateau|stuck|progress.*stopped", text):
+            answer = (
+                "Verify the plateau across 3–4 weeks of logged sets, reps, load and effort. Keep most work at 1–3 "
+                "reps in reserve, use double progression, and check sleep and food. If progress is genuinely stalled, "
+                "deload for a week or change one variable—not the whole program. Tell me the lift, recent sets and weekly frequency."
+            )
+        elif not answer and re.search(r"run|running|cardio|cycling|conditioning", text):
+            answer = (
+                "Keep priority sessions when you are freshest. Separate hard intervals from heavy lower-body training "
+                "by a day when possible; easy cardio can follow lifting. Lift first when strength is the priority and "
+                "do cardio first when endurance is the priority. Start with two sessions of each and adjust from recovery."
+            )
+        elif not answer:
+            answer = (
+                "I can answer open-ended workout questions about exercise selection, gym or home training, strength, "
+                "muscle gain, cardio, calisthenics, mobility, progression, plateaus and substitutions. For a complete "
+                "personalised plan, include your goal, experience, days, session length, equipment and limitations."
+            )
+        return {
+            "answer": answer,
+            "source": source if not self.llm.available else "Groq broad workout coach route",
+            "trace": state.get("trace", []) + ["Matched broad workout question", "Generated practical training guidance"],
+        }
+
     def _general_node(self, state: AgentState) -> AgentState:
         gym_answer = common_gym_answer(state["question"])
         if gym_answer:
@@ -318,6 +355,7 @@ class AuraFitAgent:
             "calculator": self._calculator_node,
             "nutrition": self._nutrition_node,
             "health": self._health_node,
+            "training": self._training_node,
             "general": self._general_node,
         }
         return {**state, **nodes[state["route"]](state)}

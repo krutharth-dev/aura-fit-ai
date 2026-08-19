@@ -160,6 +160,15 @@ test("routes nutrition and health questions through safe specialist fallbacks", 
   assert.match(injury.data.answer, /cannot diagnose|warning signs|assessment/i);
 });
 
+test("answers broad free-text workout questions without requiring a starter button", async () => {
+  const cardio = await chat("How should I combine running with leg training?");
+  const plateau = await chat("My bench press progress is stuck. What should I change?");
+  assert.equal(cardio.data.route, "training");
+  assert.match(cardio.data.answer, /Combining cardio and strength/);
+  assert.equal(plateau.data.route, "training");
+  assert.match(plateau.data.answer, /plateau checklist/i);
+});
+
 test("rejects malformed and oversized requests", async () => {
   const malformed = await appFetch("/api/chat", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "test-malformed" }, body: "{not-json" });
   const oversized = await chat("x".repeat(2_001));

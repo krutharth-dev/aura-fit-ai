@@ -6,6 +6,7 @@ import {
 } from "./workouts";
 import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
 import { healthAnswer, isUrgentHealthQuestion, nutritionAnswer } from "./wellness";
+import { trainingAnswer } from "./training";
 import {
   consumeRateLimit,
   historyDatabase,
@@ -69,6 +70,7 @@ function chooseRoute(message: string) {
   if (/plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program/.test(text)) return "program";
   if (/symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain/.test(text)) return "health";
   if (/sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache/.test(text)) return "recovery";
+  if (/workout|training|gym|cardio|running|cycling|conditioning|calisthenic|bodyweight|mobility|warm.?up|flexibility|plateau|stuck|progress|volume|frequency|sets|reps|rpe|rir|failure|substitut|alternative|replace|hotel|travel/.test(text)) return "training";
   if (/form|technique|how (?:do|to)|exercise|squat|bench|deadlift|row|pulldown|press|curl|lunge|hinge|pull.?up/.test(text)) return "exercise";
   return "general";
 }
@@ -174,6 +176,7 @@ function demoAnswer(message: string, route: string, profile?: FitnessProfile | n
   if (route === "recovery") return recoveryAnswer(message);
   if (route === "nutrition") return nutritionAnswer(message);
   if (route === "health") return healthAnswer(message);
+  if (route === "training") return trainingAnswer(message);
   return profile
     ? `Your saved fitness profile is active, so I’ll automatically use your ${profile.daysPerWeek}-day schedule, ${profile.sessionMinutes}-minute sessions, equipment and training preferences. Ask me to build a program, plan today’s workout, explain an exercise, calculate training numbers or review recovery.`
     : "I can help you build a complete program, understand an exercise, plan progression, estimate a 1RM, or think through recovery. For the best starting point, tell me your goal, experience, training days, session length, equipment and any limitations.";
