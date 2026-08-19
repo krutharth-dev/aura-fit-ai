@@ -76,6 +76,8 @@ class AuraFitAgent:
             builder.add_node("exercise", self._exercise_node)
             builder.add_node("recovery", self._recovery_node)
             builder.add_node("calculator", self._calculator_node)
+            builder.add_node("nutrition", self._nutrition_node)
+            builder.add_node("health", self._health_node)
             builder.add_node("general", self._general_node)
             builder.add_edge(START, "router")
             builder.add_conditional_edges(
@@ -86,22 +88,28 @@ class AuraFitAgent:
                     "exercise": "exercise",
                     "recovery": "recovery",
                     "calculator": "calculator",
+                    "nutrition": "nutrition",
+                    "health": "health",
                     "general": "general",
                 },
             )
-            for node in ("program", "exercise", "recovery", "calculator", "general"):
+            for node in ("program", "exercise", "recovery", "calculator", "nutrition", "health", "general"):
                 builder.add_edge(node, END)
             return builder.compile(checkpointer=MemorySaver())
         except ImportError:
             return None
 
     @staticmethod
-    def choose_route(question: str) -> Literal["program", "exercise", "recovery", "calculator", "general"]:
+    def choose_route(question: str) -> Literal["program", "exercise", "recovery", "calculator", "nutrition", "health", "general"]:
         text = question.lower()
         if re.search(r"chest pain|faint|severe.*breath|new.*numb|new.*weak|major.*injur|sharp|worsening|swelling|cannot bear|can.t bear", text):
             return "recovery"
         if re.search(r"1\s*rm|one.rep.max|calculate|estimate|max from|\d+\s*(?:kg|lb|lbs)?\s*(?:x|for)\s*\d+|plate math|percentage", text):
             return "calculator"
+        if re.search(r"diet|nutrition|protein|calorie|macro|meal|food|hydration|electrolyte|supplement|creatine|caffeine|vitamin|weight loss|fat loss|bulk", text):
+            return "nutrition"
+        if re.search(r"symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain", text):
+            return "health"
         if re.search(r"plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program", text):
             return "program"
         if re.search(r"pain|injur|sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache|faint|chest pain|breath", text):
@@ -234,6 +242,44 @@ class AuraFitAgent:
             "trace": state.get("trace", []) + ["Executed training calculator"],
         }
 
+    def _nutrition_node(self, state: AgentState) -> AgentState:
+        context, source = self._context_for(state["question"])
+        system = (
+            "You are AURA FIT's sports-nutrition educator. Give practical, goal-aware food and supplement guidance. "
+            "Do not prescribe a medical diet, support disordered eating, or override restrictions from a doctor or "
+            "accredited dietitian. Ask for relevant preferences and restrictions before calling advice personalised. CONTEXT:\n" + context
+        )
+        answer = self.llm.complete(system, state["question"], state.get("history")) or (
+            "Build meals around a protein source, carbohydrate suited to training demand, vegetables or fruit, and "
+            "dietary fat. Adjust portions gradually using performance, recovery, hunger and body-weight trend. For a "
+            "healthy resistance-training adult, a common general protein range is about 1.6–2.2 g/kg/day. Medical "
+            "conditions, pregnancy, medicines, allergies or an eating-disorder history require individual professional advice."
+        )
+        return {
+            "answer": answer,
+            "source": source if not self.llm.available else "Groq sports nutrition route",
+            "trace": state.get("trace", []) + ["Applied nutrition safety boundaries", "Generated sports nutrition guidance"],
+        }
+
+    def _health_node(self, state: AgentState) -> AgentState:
+        context, source = self._context_for(state["question"])
+        system = (
+            "You are AURA FIT's health-education route. Explain possibilities, warning signs and next steps without "
+            "diagnosing, prescribing medicines or claiming to examine the user. Prioritise urgent escalation and recommend "
+            "appropriate professional assessment when needed. CONTEXT:\n" + context
+        )
+        answer = self.llm.complete(system, state["question"], state.get("history")) or (
+            "I can explain common possibilities and warning signs, but I cannot diagnose an injury from chat. Pause the "
+            "aggravating activity and seek assessment for deformity, inability to bear weight, major swelling, loss of "
+            "function, worsening pain, fever, numbness or weakness. Tell me what happened, where it hurts, when it began "
+            "and how function has changed for more specific educational guidance."
+        )
+        return {
+            "answer": answer,
+            "source": source if not self.llm.available else "Groq health education route",
+            "trace": state.get("trace", []) + ["Applied health safety screen", "Generated non-diagnostic guidance"],
+        }
+
     def _general_node(self, state: AgentState) -> AgentState:
         gym_answer = common_gym_answer(state["question"])
         if gym_answer:
@@ -270,6 +316,8 @@ class AuraFitAgent:
             "exercise": self._exercise_node,
             "recovery": self._recovery_node,
             "calculator": self._calculator_node,
+            "nutrition": self._nutrition_node,
+            "health": self._health_node,
             "general": self._general_node,
         }
         return {**state, **nodes[state["route"]](state)}

@@ -5,6 +5,7 @@ import {
   type ChatHistoryItem,
 } from "./workouts";
 import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
+import { healthAnswer, isUrgentHealthQuestion, nutritionAnswer } from "./wellness";
 import {
   consumeRateLimit,
   historyDatabase,
@@ -31,9 +32,9 @@ const MAX_LOCAL_BUCKETS = 500;
 const requestBuckets = new Map<string, { count: number; resetAt: number }>();
 
 const FITNESS_CONTEXT = `
-AURA FIT is an educational AI training coach. It helps users build gym programs,
-understand exercise technique, plan progression, estimate training numbers and
-think through recovery. A good plan considers goal, experience level, available
+AURA FIT is an educational AI fitness and wellness coach. It helps users build gym programs,
+understand exercise technique, plan progression, estimate training numbers,
+think through recovery, use evidence-aware sports nutrition and understand health questions related to training. A good plan considers goal, experience level, available
 days, session duration, equipment and injuries or limitations.
 
 General programming principles:
@@ -48,6 +49,8 @@ Safety boundaries:
 - Do not diagnose injuries, prescribe rehabilitation or encourage training through sharp, severe or worsening pain.
 - Chest pain, fainting, severe breathing difficulty, new weakness/numbness or a major acute injury needs prompt medical assessment.
 - For pregnancy, significant medical conditions, recent surgery or persistent pain, advise professional clearance and individual care.
+- Nutrition guidance may be personalised to goals and stated preferences, but never invent medical dietary restrictions or replace an accredited dietitian.
+- Explain health and injury topics, warning signs and next steps without claiming a diagnosis, prescribing medication or creating post-operative rehabilitation.
 `;
 
 const SYSTEM_PROMPT = `You are AURA FIT, a concise, supportive AI training coach.
@@ -61,9 +64,11 @@ encourage training through sharp or worsening pain.\n\n${FITNESS_CONTEXT}`;
 
 function chooseRoute(message: string) {
   const text = message.toLowerCase();
+  if (/diet|nutrition|protein|calorie|macro|meal|food|hydration|electrolyte|supplement|creatine|caffeine|vitamin|weight loss|fat loss|bulk/.test(text)) return "nutrition";
+  if (/symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain/.test(text)) return "health";
   if (/1\s*rm|one.rep.max|calculate|estimate|max from|\d+\s*(?:kg|lb|lbs)?\s*(?:x|for)\s*\d+|plate math|percentage/.test(text)) return "calculator";
   if (/plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program/.test(text)) return "program";
-  if (/pain|injur|sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache|faint|chest pain|breath/.test(text)) return "recovery";
+  if (/sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache/.test(text)) return "recovery";
   if (/form|technique|how (?:do|to)|exercise|squat|bench|deadlift|row|pulldown|press|curl|lunge|hinge|pull.?up/.test(text)) return "exercise";
   return "general";
 }
@@ -167,6 +172,8 @@ function demoAnswer(message: string, route: string, profile?: FitnessProfile | n
   if (route === "program") return deterministicProgramAnswer(message, profile);
   if (route === "exercise") return exerciseAnswer(message);
   if (route === "recovery") return recoveryAnswer(message);
+  if (route === "nutrition") return nutritionAnswer(message);
+  if (route === "health") return healthAnswer(message);
   return profile
     ? `Your saved fitness profile is active, so I’ll automatically use your ${profile.daysPerWeek}-day schedule, ${profile.sessionMinutes}-minute sessions, equipment and training preferences. Ask me to build a program, plan today’s workout, explain an exercise, calculate training numbers or review recovery.`
     : "I can help you build a complete program, understand an exercise, plan progression, estimate a 1RM, or think through recovery. For the best starting point, tell me your goal, experience, training days, session length, equipment and any limitations.";
@@ -227,7 +234,7 @@ async function rateLimitState(request: Request) {
 }
 
 function isSafetyCritical(message: string) {
-  return /chest pain|faint|severe.*breath|new.*numb|new.*weak|major.*injur|sharp|worsening|swelling|cannot bear|can.t bear/i.test(message);
+  return isUrgentHealthQuestion(message) || /sharp|worsening|major swelling|cannot bear|can.t bear/i.test(message);
 }
 
 async function boundedFetch(input: string, init: RequestInit, timeoutMs = 12_000) {
@@ -318,7 +325,7 @@ export async function POST(request: Request) {
     };
 
     if (isSafetyCritical(message)) {
-      return respond({ answer: recoveryAnswer(message), route: "recovery", source: "AURA FIT safety guardrail", trace: responseTrace("recovery", "Applied the safety escalation policy") });
+      return respond({ answer: healthAnswer(message), route: "recovery", source: "AURA FIT safety guardrail", trace: responseTrace("recovery", "Applied the safety escalation policy") });
     }
 
     const bodyPartAnswer = isBodyPartWorkoutTurn(message, history)
@@ -421,7 +428,7 @@ export async function POST(request: Request) {
     return respond({
       answer: data.choices?.[0]?.message?.content ?? demoAnswer(message, route, savedProfile),
       route,
-      source: route === "exercise" ? "Groq · Exercise context" : "Groq · Fitness coach route",
+      source: route === "exercise" ? "Groq · Exercise context" : route === "nutrition" ? "Groq · Sports nutrition route" : route === "health" ? "Groq · Health education route" : "Groq · Fitness coach route",
       trace: responseTrace(route, "Generated a live grounded response"),
     });
   } catch {
