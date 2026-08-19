@@ -55,6 +55,8 @@ test("renders professional metadata, team details and security headers", async (
   assert.match(html, /Set up profile/);
   assert.match(html, /Guest chats are not saved/);
   assert.match(html, /Privacy/);
+  assert.match(html, /Plan my nutrition/);
+  assert.match(html, /Ask about an injury/);
 });
 
 test("renders an account-synced workspace from trusted ChatGPT identity headers", async () => {
@@ -144,6 +146,39 @@ test("keeps calculator and urgent safety behavior deterministic", async () => {
   assert.equal(calculator.data.source, "Deterministic training calculator");
   assert.match(recovery.data.answer, /emergency service/i);
   assert.equal(recovery.data.route, "recovery");
+});
+
+test("routes nutrition and health questions through safe specialist fallbacks", async () => {
+  const nutrition = await chat("How much protein should I eat for muscle gain?");
+  const supplement = await chat("Should I take creatine for the gym?");
+  const injury = await chat("Could my swollen painful ankle be a workout injury?");
+  assert.equal(nutrition.data.route, "nutrition");
+  assert.match(nutrition.data.answer, /1\.6–2\.2 g/);
+  assert.equal(supplement.data.route, "nutrition");
+  assert.match(supplement.data.answer, /creatine monohydrate/i);
+  assert.equal(injury.data.route, "health");
+  assert.match(injury.data.answer, /cannot diagnose|warning signs|assessment/i);
+});
+
+test("answers broad free-text workout questions without requiring a starter button", async () => {
+  const cardio = await chat("How should I combine running with leg training?");
+  const plateau = await chat("My bench press progress is stuck. What should I change?");
+  assert.equal(cardio.data.route, "training");
+  assert.match(cardio.data.answer, /Combining cardio and strength/);
+  assert.equal(plateau.data.route, "training");
+  assert.match(plateau.data.answer, /plateau checklist/i);
+});
+
+test("adjusts the latest plan from conversation history", async () => {
+  const plan = await chat("Create a 3-day muscle-building plan for a beginner with dumbbells at home, 60-minute sessions and no injuries.");
+  const adjusted = await chat("Make that plan 30 minutes, replace Romanian deadlifts with hip thrusts and add running twice weekly.", [
+    { role: "user", content: "Create a 3-day muscle-building plan for a beginner with dumbbells at home, 60-minute sessions and no injuries." },
+    { role: "assistant", content: plan.data.answer },
+  ]);
+  assert.equal(adjusted.data.route, "adjustment");
+  assert.match(adjusted.data.answer, /30 minutes/);
+  assert.match(adjusted.data.answer, /Hip thrust/i);
+  assert.match(adjusted.data.answer, /two sessions/i);
 });
 
 test("rejects malformed and oversized requests", async () => {

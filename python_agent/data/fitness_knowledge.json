@@ -124,5 +124,29 @@
     "title": "Exercise substitutions",
     "source": "AURA FIT gym fundamentals",
     "content": "Choose substitutions by movement pattern and target: replace knee-dominant work with another squat or lunge pattern, a hinge with another hip-dominant movement, and presses or pulls with the same direction of movement using available equipment and a comfortable range."
+  },
+  {
+    "id": "sports-nutrition-foundations",
+    "title": "Sports nutrition foundations",
+    "source": "AURA FIT nutrition guide",
+    "content": "Build meals around a suitable protein source, carbohydrate scaled to training demand, vegetables or fruit, and dietary fat. Adjust portions gradually using performance, recovery, hunger and body-weight trend. Medical diets require an appropriately qualified professional."
+  },
+  {
+    "id": "protein-intake",
+    "title": "Protein for resistance training",
+    "source": "AURA FIT nutrition guide",
+    "content": "For healthy resistance-training adults, about 1.6 to 2.2 grams of protein per kilogram of body weight per day is a practical general range. Spread intake across several meals. Medical conditions, pregnancy and prescribed diets can change what is appropriate."
+  },
+  {
+    "id": "creatine",
+    "title": "Creatine monohydrate",
+    "source": "AURA FIT supplement guide",
+    "content": "Creatine monohydrate is the best-studied form for strength and repeated high-intensity training. A common general approach for healthy adults is 3 to 5 grams daily. Choose a reputable third-party-tested product and seek individual advice when pregnant, under 18, living with kidney disease or taking relevant medicines."
+  },
+  {
+    "id": "injury-education",
+    "title": "Workout injury education boundary",
+    "source": "AURA FIT health guide",
+    "content": "An AI coach may explain common possibilities, warning signs and sensible next steps, but cannot diagnose an injury or replace a physical examination. Deformity, inability to bear weight, major swelling, loss of function, fever, numbness, weakness or worsening pain warrants professional assessment."
   }
 ]

@@ -23,6 +23,11 @@ class AuraFitAgentTests(unittest.TestCase):
         self.assertEqual(self.agent.choose_route("Explain squat form"), "exercise")
         self.assertEqual(self.agent.choose_route("My legs are still sore"), "recovery")
         self.assertEqual(self.agent.choose_route("Estimate 100 kg x 5"), "calculator")
+        self.assertEqual(self.agent.choose_route("How much protein should I eat?"), "nutrition")
+        self.assertEqual(self.agent.choose_route("Could this ankle pain be an injury?"), "health")
+        self.assertEqual(self.agent.choose_route("How should I combine running with leg training?"), "training")
+        self.assertEqual(self.agent.choose_route("My bench progress is stuck"), "training")
+        self.assertEqual(self.agent.choose_route("Create a home workout plan with no injuries"), "program")
 
     def test_training_calculators(self) -> None:
         self.assertEqual(safe_math("(20 * 2.5) + 10"), 60)
@@ -60,6 +65,14 @@ class AuraFitAgentTests(unittest.TestCase):
         self.assertIn("emergency", result["answer"].lower())
         mixed = self.agent.invoke("I have chest pain, but how long should I rest between sets?", thread_id="test-safety-mixed")
         self.assertEqual(mixed["route"], "recovery")
+
+    def test_broad_health_and_nutrition_routes_are_bounded(self) -> None:
+        nutrition = self.agent.invoke("How much protein should I eat?", thread_id="test-nutrition")
+        health = self.agent.invoke("Could this ankle pain be an injury?", thread_id="test-health")
+        self.assertEqual(nutrition["route"], "nutrition")
+        self.assertIn("1.6", nutrition["answer"])
+        self.assertEqual(health["route"], "health")
+        self.assertIn("cannot diagnose", health["answer"].lower())
 
     def test_body_part_workout_is_guided_without_a_default_muscle(self) -> None:
         request = "I want to train a body part today"

@@ -40,6 +40,8 @@ const starterPrompts = [
   { label: "Plan progression", prompt: "How should I progress my main lifts when I reach the top of my rep range?", icon: "04", category: "PROGRESSION" },
   { label: "Calculate strength", prompt: "Estimate my 1RM from 100 kg x 5 reps.", icon: "05", category: "CALCULATOR" },
   { label: "Check recovery", prompt: "I am still sore two days after training. Should I train again today?", icon: "06", category: "RECOVERY" },
+  { label: "Plan my nutrition", prompt: "Help me build a practical sports nutrition plan around my training goal and food preferences.", icon: "07", category: "NUTRITION" },
+  { label: "Ask about an injury", prompt: "Help me understand a workout-related pain, warning signs and what level of assessment may be appropriate.", icon: "08", category: "HEALTH" },
 ];
 
 const bodyPartReplies = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Arms", "Quads", "Hamstrings", "Glutes", "Legs", "Calves", "Core", "Forearms", "Full body"];
@@ -48,7 +50,7 @@ const exerciseCountReplies = ["3", "4", "5", "6", "7", "8"];
 const welcomeMessage: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Your training workspace is ready. Start any workout conversation—from a complete program to exercise form, progression, strength calculations or recovery. What are we working on today?",
+  content: "Your fitness workspace is ready. Ask about training, exercise form, progression, recovery, sports nutrition, supplements or workout-related health concerns. What are we working on today?",
   route: "welcome",
 };
 
@@ -67,7 +69,7 @@ function newMessageId() {
 }
 
 function routeLabel(route?: string) {
-  return ({ welcome: "READY", program: "PROGRAM", exercise: "FORM COACH", recovery: "RECOVERY", calculator: "TRAINING MATH", general: "COACH" } as Record<string, string>)[route ?? "general"] ?? "COACH";
+  return ({ welcome: "READY", program: "PROGRAM", adjustment: "PLAN UPDATED", training: "WORKOUT COACH", exercise: "FORM COACH", recovery: "RECOVERY", nutrition: "NUTRITION", health: "HEALTH GUIDE", calculator: "TRAINING MATH", general: "COACH" } as Record<string, string>)[route ?? "general"] ?? "COACH";
 }
 
 function relativeDate(timestamp: number) {
@@ -393,7 +395,7 @@ export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: 
         </header>
 
         {showDetails && <div className="architecture-panel" id="architecture-panel" role="region" aria-label="How AURA FIT works">
-          <strong>COACHING ENGINE</strong><span>Workout planning, technique, progression, strength calculations and recovery routing</span><i />
+          <strong>OPEN-SOURCE COACHING ENGINE</strong><span>Training, technique, sports nutrition, supplements, health education and safety-first injury routing</span><i />
           <strong>SECURE MEMORY</strong><span>{user ? "Account-owned chat history synced across signed-in devices" : "Guest messages are not retained as durable history"}</span>
           <div className="architecture-team">
             <strong>PROJECT TEAM</strong>
@@ -435,10 +437,10 @@ export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: 
 
         <div className="composer-wrap">
           <form className="composer" onSubmit={onSubmit}>
-            <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSubmit(event as unknown as FormEvent); } }} placeholder="Ask about workouts, form, progression or recovery..." rows={1} aria-label="Message AURA FIT" />
+            <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSubmit(event as unknown as FormEvent); } }} placeholder="Ask about training, nutrition, supplements, recovery or injuries..." rows={1} aria-label="Message AURA FIT" />
             <button type="submit" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
           </form>
-          <p className="composer-note"><span>✦</span> {user ? "Chats securely sync only to your account" : "Guest chats are not saved"} · Educational guidance, not medical diagnosis <i /> <Link href="/privacy">Privacy</Link>{isAdmin && <> · <Link href="/admin">Owner console</Link></>} · Enter to send</p>
+          <p className="composer-note"><span>✦</span> {user ? "Chats securely sync only to your account" : "Guest chats are not saved"} · Open source · Educational guidance, not diagnosis <i /> <Link href="/privacy">Privacy</Link>{isAdmin && <> · <Link href="/admin">Owner console</Link></>} · Enter to send</p>
         </div>
       </section>
 

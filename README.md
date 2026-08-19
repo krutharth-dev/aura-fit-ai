@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/krutharth-dev/aura-fit-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/krutharth-dev/aura-fit-ai/actions/workflows/ci.yml)
 
-AURA FIT is a safety-aware agentic fitness coach that creates personalised workout programs, answers gym questions, explains exercise technique, estimates training numbers and demonstrates observable specialist routing.
+AURA FIT is an MIT-licensed, safety-aware agentic fitness and wellness coach. It creates personalised workout programs, answers broad training questions, explains exercise technique, provides goal-aware sports-nutrition and supplement education, helps users understand workout-related health concerns, estimates training numbers and exposes observable specialist routing.
 
 **Live demo:** [mce-agentic-ai.kruthajn777.chatgpt.site](https://mce-agentic-ai.kruthajn777.chatgpt.site)
 
-> Educational fitness guidance only. AURA FIT does not diagnose injuries or replace a doctor, physiotherapist, dietitian or qualified in-person coach.
+> Educational guidance only. AURA FIT can explain medical and nutrition topics but does not diagnose injuries, prescribe medication or rehabilitation, create medical diets, or replace a doctor, physiotherapist, accredited dietitian or qualified in-person coach.
 
 ## Capabilities
 
@@ -14,12 +14,18 @@ AURA FIT is a safety-aware agentic fitness coach that creates personalised worko
 - Multi-turn body-part workout builder with session memory
 - Deterministic 1RM calculator and verified gym FAQ library
 - Conservative pain screening and urgent-symptom escalation
+- Dedicated sports-nutrition and supplement route with goal-aware guidance
+- Dedicated health-education route for symptoms, workout injuries, warning signs and next steps
+- Broad free-text workout route for cardio combinations, calisthenics, mobility, plateaus, training dose and exercise substitutions
+- Conversation-aware plan adjustments for session length, exercise swaps, beginner scaling and conditioning
+- A 50-prompt evaluator bank covering constraints, workout questions, nutrition, recovery and safety escalation
+- Safe personalisation that respects allergies, dietary preferences and clinician-directed restrictions
 - Route, source and execution-trace visibility
 - Durable multi-conversation history in Cloudflare D1
 - Managed ChatGPT sign-in/sign-up with account-owned, cross-device history
 - Guided fitness profiles saved per authenticated account and applied automatically to coaching
 - Saved-chat switching, automatic titles, rename and delete controls
-- Six purpose-built coaching workflows and searchable conversation history
+- Eight purpose-built coaching workflows and searchable conversation history
 - Responsive, keyboard-accessible hosted interface
 - Request validation, timeouts, D1-backed distributed rate limiting and production security headers
 - Demo-safe behavior without secrets or third-party availability
@@ -44,10 +50,14 @@ flowchart TD
     B --> D[Form and FAQ]
     B --> E[Recovery guard]
     B --> F[Calculator]
+    B --> H[Nutrition]
+    B --> I[Health education]
     C --> G[Answer + source + trace]
     D --> G
     E --> G
     F --> G
+    H --> G
+    I --> G
 ```
 
 The local backend additionally uses LangGraph for state transitions, ChromaDB for relevant fitness context and Groq for optional grounded refinement.
@@ -60,6 +70,12 @@ The local backend additionally uses LangGraph for state transitions, ChromaDB fo
 4. `Explain the main squat form cues and common mistakes.`
 5. `Estimate my 1RM from 100 kg × 5 reps.`
 6. `I have chest pain, but how long should I rest between sets?`
+7. `How much protein should I eat for muscle gain?`
+8. `Could my swollen ankle be a workout injury?`
+
+## Open source
+
+AURA FIT is released under the [MIT License](LICENSE). You may use, copy, modify and distribute the code subject to the licence notice. Contributions should preserve the safety-first separation between education and diagnosis, urgent escalation, privacy boundaries and deterministic program constraints.
 
 ## Local setup
 
@@ -87,7 +103,7 @@ npm run test:python
 npm audit --omit=dev
 ```
 
-The test suite verifies signed-in-only durable history, cross-account isolation, saved-profile validation, profile-aware program generation, exact day counts, equipment and time constraints, limitation refusal, multi-turn memory, signed-in cross-device database sync, privacy-safe observability, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
+The test suite verifies signed-in-only durable history, cross-account isolation, saved-profile validation, profile-aware program generation, exact day counts, equipment and time constraints, limitation refusal, nutrition and health routing, supplement guardrails, multi-turn memory, signed-in cross-device database sync, privacy-safe observability, calculations, safety escalation, request validation, security headers and deployable Worker/database output.
 
 ## Project structure
 

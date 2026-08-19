@@ -10,7 +10,10 @@ Security fixes are applied to the latest `main` branch and current hosted deploy
 
 ## Application boundaries
 
-- AURA FIT is educational fitness software, not a medical device.
+- AURA FIT is educational fitness and wellness software, not a medical device, diagnostic service or clinical decision-support system.
+- Health and injury responses may explain possibilities, warning signs and next steps but must not claim a diagnosis, prescribe medication or replace an examination.
+- Nutrition responses may adapt general sports-nutrition guidance to user goals and preferences but must not prescribe a medical diet, override clinician-directed restrictions or support dangerous weight loss or disordered eating.
+- Urgent symptoms override every other intent and route to immediate local emergency guidance.
 - Secrets remain server-side and `.env*` files are excluded from version control.
 - Chat input and history are length-limited and sanitized.
 - Sign-in and sign-up are delegated to the platform-managed ChatGPT identity flow; AURA FIT never stores passwords.
@@ -27,3 +30,7 @@ Security fixes are applied to the latest `main` branch and current hosted deploy
 - Responses include defensive browser security headers.
 
 If urgent symptoms are present, contact local emergency services rather than relying on this application.
+
+## Open-source boundary
+
+The source code is available under the MIT License. Forks and deployments are responsible for their own clinical, privacy, security and regulatory review. Removing safety guardrails or presenting the software as medical diagnosis is outside the intended use of AURA FIT.

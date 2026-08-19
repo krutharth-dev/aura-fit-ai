@@ -4,7 +4,7 @@
 
 ### 0:00–0:25 — introduce the problem
 
-“AURA FIT is a safety-aware AI training coach. It builds constrained workout programs, answers gym questions, explains technique, estimates training numbers and exposes how each request was handled.”
+“AURA FIT is an open-source, safety-aware AI fitness and wellness coach. It builds constrained workout programs and answers broad questions about training, technique, sports nutrition, supplements, recovery and workout-related health while exposing how each request was handled.”
 
 ### 0:25–1:00 — show memory
 
@@ -26,9 +26,11 @@ Ask `Estimate my 1RM from 100 kg × 5 reps.` Explain that repeatable calculation
 
 Ask `I have chest pain, but how long should I rest between sets?` Explain that urgent safety guidance wins even when the same message contains a normal gym question.
 
+Then briefly ask `How much protein should I eat for muscle gain?` and `Could my swollen ankle be a workout injury?` Point out the dedicated **NUTRITION** and **HEALTH GUIDE** routes. Explain that AURA FIT can personalise educational guidance but will not diagnose, prescribe medication or create a medical diet.
+
 ### 2:25–3:00 — explain the architecture honestly
 
-Open **How it works**. Point out the completed project-team details and repository link. Say: “The public app uses a deterministic TypeScript coaching engine, managed identity and D1 account history so it remains reliable without exposing secrets. The full local version adds FastAPI, LangGraph, ChromaDB and optional Groq generation. Both return the chosen route, source and execution trace.”
+Open **How it works**. Point out the MIT-licensed open-source repository, completed project-team details and repository link. Say: “The public app uses specialist TypeScript routes, managed identity and D1 account history so it remains reliable without exposing secrets. The full local version adds FastAPI, LangGraph, ChromaDB and optional Groq generation. Both preserve safety escalation and return the chosen route, source and execution trace.”
 
 ## Full-agent local demo
 
@@ -44,7 +46,15 @@ Run `npm run dev:full`, then repeat the form prompt `Explain squat form`. Show t
 
 **Why ChromaDB?** It stores fitness material locally and retrieves relevant context rather than injecting the full knowledge base into every prompt.
 
-**What works offline?** Routing, body-part workouts, program scaffolds, common gym questions, form guidance, recovery screening and calculations.
+**What works offline?** Routing, body-part workouts, program scaffolds, common gym questions, form guidance, recovery screening, nutrition and supplement fundamentals, non-diagnostic health guidance and calculations.
+
+**Free-text workout route:** Ask `How should I combine running with leg training?`, `What should I do when my bench press plateaus?` or `What can replace a barbell deadlift at home?`. The evaluator should see practical guidance from the `training` route even when the live model is unavailable.
+
+**Adjust an existing plan:** Immediately after the constrained plan, ask `Make that plan 30 minutes, replace Romanian deadlifts with hip thrusts and add running twice weekly.` The evaluator should see **PLAN UPDATED**, a concise change summary and the revised plan without re-entering the profile.
+
+For extended assessment, run the 50 prompts in `docs/EVALUATOR_PROMPTS.md`.
+
+**Is it open source?** Yes. The public repository includes an MIT License, so the code can be used, modified and distributed while retaining the licence notice.
 
 **How is safety handled?** The coach does not diagnose or prescribe rehabilitation. It refuses to guess around reported limitations and escalates urgent symptoms ahead of other intents.
 
@@ -56,5 +66,7 @@ Run `npm run dev:full`, then repeat the form prompt `Explain squat form`. Show t
 - Expand at least one agent trace.
 - Confirm guest mode and the managed sign-in/sign-up entry point both render.
 - Confirm both team members, corrected USNs, section CSE-B and the repository link render under **How it works**.
+- Confirm the nutrition and injury starters display and return the correct specialist routes.
+- Confirm the repository contains `LICENSE` and describes the medical and nutrition safety boundaries.
 - Keep `.env.local` private.
 - Keep the repository and hosted link ready as separate evidence.

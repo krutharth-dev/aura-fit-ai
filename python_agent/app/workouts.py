@@ -250,7 +250,7 @@ def is_body_part_workout_turn(question: str, history: list[dict[str, str]] | Non
     earlier = _prior_history(history or [], question)
     body_part = extract_body_part(question)
     asks_for_workout = bool(re.search(r"\b(?:workout|train|training|session|routine|exercises?|variations?|movements?|today)\b", question, re.I))
-    form_question = bool(re.search(r"\b(?:form|technique|how (?:do|to)|pain|injury)\b", question, re.I))
+    form_question = bool(re.search(r"\b(?:form|technique|how (?:do|to|should)|combine|cardio|running|cycling|conditioning|plateau|stuck|pain|injury)\b", question, re.I))
     if _starts_body_part_workout(question):
         return True
     if body_part and asks_for_workout and not form_question:
