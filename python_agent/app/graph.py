@@ -108,10 +108,10 @@ class AuraFitAgent:
             return "calculator"
         if re.search(r"diet|nutrition|protein|calorie|macro|meal|food|hydration|electrolyte|supplement|creatine|caffeine|vitamin|weight loss|fat loss|bulk", text):
             return "nutrition"
-        if re.search(r"symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain", text):
-            return "health"
         if re.search(r"plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program", text):
             return "program"
+        if re.search(r"symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain", text):
+            return "health"
         if re.search(r"pain|injur|sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache|faint|chest pain|breath", text):
             return "recovery"
         if is_body_part_workout_turn(question):

@@ -25,6 +25,7 @@ class AuraFitAgentTests(unittest.TestCase):
         self.assertEqual(self.agent.choose_route("Estimate 100 kg x 5"), "calculator")
         self.assertEqual(self.agent.choose_route("How much protein should I eat?"), "nutrition")
         self.assertEqual(self.agent.choose_route("Could this ankle pain be an injury?"), "health")
+        self.assertEqual(self.agent.choose_route("Create a home workout plan with no injuries"), "program")
 
     def test_training_calculators(self) -> None:
         self.assertEqual(safe_math("(20 * 2.5) + 10"), 60)
