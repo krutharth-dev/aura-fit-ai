@@ -169,6 +169,18 @@ test("answers broad free-text workout questions without requiring a starter butt
   assert.match(plateau.data.answer, /plateau checklist/i);
 });
 
+test("adjusts the latest plan from conversation history", async () => {
+  const plan = await chat("Create a 3-day muscle-building plan for a beginner with dumbbells at home, 60-minute sessions and no injuries.");
+  const adjusted = await chat("Make that plan 30 minutes, replace Romanian deadlifts with hip thrusts and add running twice weekly.", [
+    { role: "user", content: "Create a 3-day muscle-building plan for a beginner with dumbbells at home, 60-minute sessions and no injuries." },
+    { role: "assistant", content: plan.data.answer },
+  ]);
+  assert.equal(adjusted.data.route, "adjustment");
+  assert.match(adjusted.data.answer, /30 minutes/);
+  assert.match(adjusted.data.answer, /Hip thrust/i);
+  assert.match(adjusted.data.answer, /two sessions/i);
+});
+
 test("rejects malformed and oversized requests", async () => {
   const malformed = await appFetch("/api/chat", { method: "POST", headers: { "content-type": "application/json", "cf-connecting-ip": "test-malformed" }, body: "{not-json" });
   const oversized = await chat("x".repeat(2_001));

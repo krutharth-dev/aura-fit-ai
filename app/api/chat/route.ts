@@ -7,6 +7,7 @@ import {
 import { programAnswer as deterministicProgramAnswer, programTrace } from "./programs";
 import { healthAnswer, isUrgentHealthQuestion, nutritionAnswer } from "./wellness";
 import { trainingAnswer } from "./training";
+import { adjustPlanAnswer, isPlanAdjustment } from "./adjustments";
 import {
   consumeRateLimit,
   historyDatabase,
@@ -350,6 +351,15 @@ export async function POST(request: Request) {
         route: "general",
         source: "AURA FIT gym fundamentals library",
         trace: responseTrace("general", "Matched verified gym fundamentals"),
+      });
+    }
+
+    if (isPlanAdjustment(message, history)) {
+      return respond({
+        answer: adjustPlanAnswer(message, history)!,
+        route: "adjustment",
+        source: "AURA FIT plan adjustment engine · Conversation history",
+        trace: ["Assessed training request", "Found the latest plan in saved conversation history", "Applied requested constraints without rebuilding unrelated sessions"],
       });
     }
 

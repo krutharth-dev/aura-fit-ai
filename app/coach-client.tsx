@@ -69,7 +69,7 @@ function newMessageId() {
 }
 
 function routeLabel(route?: string) {
-  return ({ welcome: "READY", program: "PROGRAM", exercise: "FORM COACH", recovery: "RECOVERY", nutrition: "NUTRITION", health: "HEALTH GUIDE", calculator: "TRAINING MATH", general: "COACH" } as Record<string, string>)[route ?? "general"] ?? "COACH";
+  return ({ welcome: "READY", program: "PROGRAM", adjustment: "PLAN UPDATED", training: "WORKOUT COACH", exercise: "FORM COACH", recovery: "RECOVERY", nutrition: "NUTRITION", health: "HEALTH GUIDE", calculator: "TRAINING MATH", general: "COACH" } as Record<string, string>)[route ?? "general"] ?? "COACH";
 }
 
 function relativeDate(timestamp: number) {

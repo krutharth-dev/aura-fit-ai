@@ -17,6 +17,8 @@ AURA FIT is an MIT-licensed, safety-aware agentic fitness and wellness coach. It
 - Dedicated sports-nutrition and supplement route with goal-aware guidance
 - Dedicated health-education route for symptoms, workout injuries, warning signs and next steps
 - Broad free-text workout route for cardio combinations, calisthenics, mobility, plateaus, training dose and exercise substitutions
+- Conversation-aware plan adjustments for session length, exercise swaps, beginner scaling and conditioning
+- A 50-prompt evaluator bank covering constraints, workout questions, nutrition, recovery and safety escalation
 - Safe personalisation that respects allergies, dietary preferences and clinician-directed restrictions
 - Route, source and execution-trace visibility
 - Durable multi-conversation history in Cloudflare D1

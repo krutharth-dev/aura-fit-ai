@@ -50,6 +50,10 @@ Run `npm run dev:full`, then repeat the form prompt `Explain squat form`. Show t
 
 **Free-text workout route:** Ask `How should I combine running with leg training?`, `What should I do when my bench press plateaus?` or `What can replace a barbell deadlift at home?`. The evaluator should see practical guidance from the `training` route even when the live model is unavailable.
 
+**Adjust an existing plan:** Immediately after the constrained plan, ask `Make that plan 30 minutes, replace Romanian deadlifts with hip thrusts and add running twice weekly.` The evaluator should see **PLAN UPDATED**, a concise change summary and the revised plan without re-entering the profile.
+
+For extended assessment, run the 50 prompts in `docs/EVALUATOR_PROMPTS.md`.
+
 **Is it open source?** Yes. The public repository includes an MIT License, so the code can be used, modified and distributed while retaining the licence notice.
 
 **How is safety handled?** The coach does not diagnose or prescribe rehabilitation. It refuses to guess around reported limitations and escalates urgent symptoms ahead of other intents.
