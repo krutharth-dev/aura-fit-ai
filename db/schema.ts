@@ -66,3 +66,24 @@ export const errorEvents = sqliteTable("error_events", {
   index("error_events_created_idx").on(table.createdAt),
   index("error_events_code_created_idx").on(table.code, table.createdAt),
 ]);
+
+export const authUsers = sqliteTable("auth_users", {
+  id: text("id").primaryKey(),
+  email: text("email").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  passwordSalt: text("password_salt").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  isAdmin: integer("is_admin").notNull().default(0),
+  createdAt: integer("created_at").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+}, (table) => [uniqueIndex("auth_users_email_idx").on(table.email)]);
+
+export const authSessions = sqliteTable("auth_sessions", {
+  tokenHash: text("token_hash").primaryKey(),
+  userId: text("user_id").notNull().references(() => authUsers.id, { onDelete: "cascade" }),
+  createdAt: integer("created_at").notNull(),
+  expiresAt: integer("expires_at").notNull(),
+}, (table) => [
+  index("auth_sessions_user_idx").on(table.userId, table.expiresAt),
+  index("auth_sessions_expires_idx").on(table.expiresAt),
+]);
