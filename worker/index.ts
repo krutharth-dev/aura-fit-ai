@@ -2,6 +2,7 @@ import handler from "vinext/server/app-router-entry";
 import { authenticatedUserFromRequest, type D1DatabaseLike } from "../lib/password-auth";
 
 interface Env {
+  ASSETS: { fetch(request: Request): Promise<Response> };
   DB?: D1DatabaseLike;
   [key: string]: unknown;
 }
