@@ -6,13 +6,13 @@
 
 “AURA FIT is an open-source, safety-aware AI fitness and wellness coach. It builds constrained workout programs and answers broad questions about training, technique, sports nutrition, supplements, recovery and workout-related health while exposing how each request was handled.”
 
-### 0:25–1:00 — show memory
+### 0:25–1:00 — show memory and accounts
 
 Choose **Train a body part**, select **Chest** from the suggested replies, then choose **5**. Explain that the final reply does not repeat “chest,” yet the coach uses recent conversation state and returns exactly five chest exercises. The same guided flow works for every listed muscle group rather than being fixed to one workout. Expand **View agent trace**.
 
-Then click **New conversation**, choose another coaching workflow and switch between both saved chats in the sidebar. Use search to find one, then reload the page to demonstrate durable D1-backed history.
+Use **Sign in / Sign up** to create a demo account. Explain that the public site uses first-party email/password accounts in Cloudflare D1: passwords are salted and hashed, session tokens are stored as hashes, and the browser receives an HttpOnly session cookie. Public sign-ups are never administrators by default.
 
-Show **Sign in / Sign up**. Explain that AURA FIT delegates authentication to ChatGPT rather than storing passwords. Guest chats are browser-scoped and are attached to the account when that guest signs in; signed-in chats then sync across devices.
+Then click **New conversation**, choose another coaching workflow and switch between both saved chats in the sidebar. Use search to find one, then reload the page to demonstrate durable D1-backed history. Guest conversations remain temporary and are not written to durable history.
 
 ### 1:00–1:35 — show constrained planning
 
@@ -30,7 +30,7 @@ Then briefly ask `How much protein should I eat for muscle gain?` and `Could my 
 
 ### 2:25–3:00 — explain the architecture honestly
 
-Open **How it works**. Point out the MIT-licensed open-source repository, completed project-team details and repository link. Say: “The public app uses specialist TypeScript routes, managed identity and D1 account history so it remains reliable without exposing secrets. The full local version adds FastAPI, LangGraph, ChromaDB and optional Groq generation. Both preserve safety escalation and return the chosen route, source and execution trace.”
+Open **How it works**. Point out the MIT-licensed open-source repository, completed project-team details and repository link. Say: “The public app runs on Cloudflare Workers with first-party account sessions and D1-backed history, while the coaching layer uses specialist TypeScript routes with deterministic fallbacks. The full local version adds FastAPI, LangGraph, ChromaDB and optional Groq generation. Both preserve safety escalation and return the chosen route, source and execution trace.”
 
 ## Full-agent local demo
 
@@ -60,11 +60,13 @@ For extended assessment, run the 50 prompts in `docs/EVALUATOR_PROMPTS.md`.
 
 ## Final check
 
-- Open the public link on phone and laptop.
+- Open the public link on phone and laptop in a private/incognito window.
+- Create a fresh account, sign out, sign back in and confirm the same saved history appears.
+- Refresh `/signin`, `/signup`, `/privacy` and the main application directly to verify routing.
 - Run every demo interaction above, including the guided body-part choices.
 - Confirm the requested plan contains the exact day count.
 - Expand at least one agent trace.
-- Confirm guest mode and the managed sign-in/sign-up entry point both render.
+- Confirm guest mode works without durable history.
 - Confirm both team members, corrected USNs, section CSE-B and the repository link render under **How it works**.
 - Confirm the nutrition and injury starters display and return the correct specialist routes.
 - Confirm the repository contains `LICENSE` and describes the medical and nutrition safety boundaries.
