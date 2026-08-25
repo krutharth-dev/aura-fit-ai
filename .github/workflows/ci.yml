@@ -23,6 +23,7 @@ jobs:
       - run: npm audit --omit=dev
       - run: npm test
       - run: npm run test:d1
+      - run: npm run test:auth
 
   python:
     runs-on: ubuntu-latest

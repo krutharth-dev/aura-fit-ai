@@ -1,8 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { historyDatabase, loadObservabilitySummary } from "../../db/history";
-import { isAdminEmail } from "../../lib/admin-access";
-import { chatGPTSignOutPath, requireChatGPTUser } from "../chatgpt-auth";
+import { requireAuraFitUser, signOutPath } from "../auth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +10,8 @@ function metric(value: number, suffix = "") {
 }
 
 export default async function AdminPage() {
-  const user = await requireChatGPTUser("/admin");
-  if (!isAdminEmail(user.email)) notFound();
+  const user = await requireAuraFitUser("/admin");
+  if (!user.isAdmin) notFound();
   const db = await historyDatabase();
   if (!db) throw new Error("Observability storage is unavailable");
   const summary = await loadObservabilitySummary(db);
@@ -21,7 +20,7 @@ export default async function AdminPage() {
   return <main className="admin-shell">
     <header className="admin-header">
       <div><Link href="/" className="admin-brand">AURA FIT</Link><span>OWNER CONSOLE</span></div>
-      <div><small>{user.email}</small><a href={chatGPTSignOutPath("/")}>Sign out</a></div>
+      <div><small>{user.email}</small><a href={signOutPath("/")}>Sign out</a></div>
     </header>
     <section className="admin-hero">
       <p>PRIVACY-SAFE OPERATIONS</p>
