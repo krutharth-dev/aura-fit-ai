@@ -8,32 +8,30 @@ if [[ "${SITES_ENV_READY:-}" != "1" ]]; then
 fi
 
 worker="${SITES_PROJECT_ROOT}/dist/server/index.js"
-hosting="${SITES_PROJECT_ROOT}/dist/.openai/hosting.json"
+migrations="${SITES_PROJECT_ROOT}/dist/.openai/drizzle"
 
 [[ -f "${worker}" ]] || {
-  echo "Missing Sites Worker entry: dist/server/index.js" >&2
+  echo "Missing Cloudflare Worker entry: dist/server/index.js" >&2
   exit 66
 }
-[[ -f "${hosting}" ]] || {
-  echo "Missing packaged Sites manifest: dist/.openai/hosting.json" >&2
+[[ -d "${migrations}" ]] || {
+  echo "Missing packaged D1 migrations." >&2
   exit 66
 }
 
-node --input-type=module - "${worker}" "${hosting}" <<'NODE'
-import { readFile, readdir } from "node:fs/promises";
+node --input-type=module - "${worker}" "${migrations}" <<'NODE'
+import { readdir } from "node:fs/promises";
 import { registerHooks } from "node:module";
-import { dirname, join } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const [workerPath, hostingPath] = process.argv.slice(2);
-const hosting = JSON.parse(await readFile(hostingPath, "utf8"));
-if (hosting.d1) {
-  const migrations = await readdir(join(dirname(hostingPath), "drizzle"));
-  if (!migrations.some((file) => file.endsWith(".sql"))) throw new Error("D1 is enabled but no packaged SQL migration was found.");
+const [workerPath, migrationsPath] = process.argv.slice(2);
+const migrations = await readdir(migrationsPath);
+if (!migrations.some((file) => file.endsWith(".sql"))) {
+  throw new Error("The deployable build must package at least one D1 migration.");
 }
 
 const workerUrl = pathToFileURL(workerPath);
-workerUrl.searchParams.set("sites-validation", `${process.pid}-${Date.now()}`);
+workerUrl.searchParams.set("worker-validation", `${process.pid}-${Date.now()}`);
 registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "cloudflare:workers") {
@@ -48,4 +46,4 @@ if (!worker.default || typeof worker.default.fetch !== "function") {
 }
 NODE
 
-echo "Validated Sites artifact: ESM Worker default.fetch and hosting manifest are present."
+echo "Validated AURA FIT Cloudflare Worker artifact and D1 migrations."
