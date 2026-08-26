@@ -3,12 +3,12 @@ set -euo pipefail
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ "${SITES_ENV_READY:-}" != "1" ]]; then
-  exec "${script_dir}/sites-env.sh" -- "$0" "$@"
+if [[ "${AURA_FIT_ENV_READY:-}" != "1" ]]; then
+  exec "${script_dir}/runtime-env.sh" -- "$0" "$@"
 fi
 
-worker="${SITES_PROJECT_ROOT}/dist/server/index.js"
-migrations="${SITES_PROJECT_ROOT}/dist/.openai/drizzle"
+worker="${AURA_FIT_PROJECT_ROOT}/dist/server/index.js"
+migrations="${AURA_FIT_PROJECT_ROOT}/dist/.openai/drizzle"
 
 [[ -f "${worker}" ]] || {
   echo "Missing Cloudflare Worker entry: dist/server/index.js" >&2
