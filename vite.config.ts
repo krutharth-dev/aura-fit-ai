@@ -1,6 +1,6 @@
 import vinext from "vinext";
 import { defineConfig } from "vite";
-import { sites } from "./build/sites-vite-plugin.ts";
+import { workerArtifact } from "./build/worker-artifact-vite-plugin.ts";
 
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
 
@@ -14,14 +14,14 @@ export default defineConfig(async () => {
     server: {
       host: "0.0.0.0",
       allowedHosts: ["terminal.local"],
-      watch: { ignored: ["**/.venv/**", "**/.sites-runtime/**", "**/.chroma/**"] },
+      watch: { ignored: ["**/.venv/**", "**/.aura-fit-runtime/**", "**/.chroma/**"] },
       ...(isCodexSeatbeltSandbox
-        ? { watch: { useFsEvents: false, usePolling: true, ignored: ["**/.venv/**", "**/.sites-runtime/**", "**/.chroma/**"] } }
+        ? { watch: { useFsEvents: false, usePolling: true, ignored: ["**/.venv/**", "**/.aura-fit-runtime/**", "**/.chroma/**"] } }
         : {}),
     },
     plugins: [
       vinext(),
-      sites(),
+      workerArtifact(),
       cloudflare({
         viteEnvironment: { name: "rsc", childEnvironments: ["ssr"] },
         inspectorPort: false,
