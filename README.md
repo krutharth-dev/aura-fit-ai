@@ -34,6 +34,7 @@ Dates use `YYYY-MM-DD`; duration is 1–600 minutes; each workout has 1–20 exe
 - Durable multi-conversation history in Cloudflare D1
 - Public email/password sign-up and sign-in with salted password hashing and HttpOnly sessions
 - Guided fitness profiles saved per authenticated account and applied automatically to coaching
+- Account & Storage dashboard with cloud-sync status, saved-data counts and portable JSON export
 - Saved-chat switching, automatic titles, rename and delete controls
 - Responsive, keyboard-accessible interface
 - Request validation, timeouts, D1-backed distributed rate limiting and production security headers

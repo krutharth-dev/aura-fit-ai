@@ -1,5 +1,5 @@
 import CoachClient from "./coach-client";
-import { getAuraFitUser, signInPath, signOutPath } from "./auth";
+import { getAuraFitUser, signInPath } from "./auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,6 @@ export default async function Home() {
       user={user ? { displayName: user.displayName, email: user.email } : null}
       isAdmin={Boolean(user?.isAdmin)}
       signInPath={signInPath("/")}
-      signOutPath={signOutPath("/")}
     />
   );
 }
