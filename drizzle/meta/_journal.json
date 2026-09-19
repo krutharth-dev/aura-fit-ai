@@ -29,6 +29,20 @@
       "when": 1786290480459,
       "tag": "0003_long_paibok",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789794517518,
+      "tag": "0004_public_auth",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789794528645,
+      "tag": "0005_busy_wither",
+      "breakpoints": true
     }
   ]
 }

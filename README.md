@@ -6,6 +6,18 @@ AURA FIT is an MIT-licensed, safety-aware AI fitness and wellness coach. It crea
 
 > Educational guidance only. AURA FIT can explain medical and nutrition topics but does not diagnose injuries, prescribe medication or rehabilitation, create medical diets, or replace a doctor, physiotherapist, accredited dietitian or qualified in-person coach.
 
+## Training journal
+
+Open `/training` to log completed sessions with exercises, sets, reps, weights in kg, duration and optional notes. The dashboard shows sessions, minutes and volume over the last seven calendar days, plus a daily consistency view. Search by session or exercise, expand workout details, export your complete journal as JSON, or delete an entry with confirmation. All journal API operations require sign-in and scope database queries to the verified account; guests can still use the coach.
+
+### Journal API
+
+- `GET /api/workouts`: list the signed-in account's workouts, newest date first.
+- `POST /api/workouts`: validate and save `{ title, date, minutes, notes, exercises: [{ name, sets, reps, weight }] }`.
+- `DELETE /api/workouts?id=...`: delete an entry belonging to the signed-in account.
+
+Dates use `YYYY-MM-DD`; duration is 1–600 minutes; each workout has 1–20 exercises. Each exercise accepts 1–30 sets, 1–200 reps and 0–1,000 kg. Volume is the sum of sets × reps × logged weight, not an estimate of effort. Unweighted exercise volume is zero. This release adds a database migration for `workout_entries`; it preserves existing conversations and profiles.
+
 ## Capabilities
 
 - Exact 2–6 day programs constrained by goal, experience, session duration and equipment

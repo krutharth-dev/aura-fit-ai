@@ -170,7 +170,7 @@ export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: 
       body: JSON.stringify({ event: "page_view" }),
     }).catch(() => undefined);
   }, []);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+  useEffect(() => { if (messages.length > 1 || loading) endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   async function fetchConversations() {
     if (!user) return [];
@@ -336,6 +336,7 @@ export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: 
           <div><p className="brand-name">AURA FIT</p><p className="brand-subtitle">AI TRAINING COACH</p></div>
           <button className="close-sidebar" onClick={() => setHistoryOpen(false)} aria-label="Close navigation">×</button>
         </div>
+        <nav className="workspace-nav" aria-label="Workspace"><Link href="/" aria-current="page">AI coach</Link><Link href="/training">Training journal</Link></nav>
         <button className="new-chat" onClick={newChat}><span>+</span> New conversation</button>
 
         <label className="conversation-search">
