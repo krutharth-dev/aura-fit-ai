@@ -87,3 +87,13 @@ export const authSessions = sqliteTable("auth_sessions", {
   index("auth_sessions_user_idx").on(table.userId, table.expiresAt),
   index("auth_sessions_expires_idx").on(table.expiresAt),
 ]);
+export const workoutEntries = sqliteTable("workout_entries", {
+  id: text("id").primaryKey(),
+  ownerId: text("owner_id").notNull(),
+  date: text("date").notNull(),
+  title: text("title").notNull(),
+  minutes: integer("minutes").notNull(),
+  exercisesJson: text("exercises_json").notNull(),
+  notes: text("notes").notNull(),
+  createdAt: integer("created_at").notNull(),
+}, (table) => [index("workout_entries_owner_date_idx").on(table.ownerId, table.date)]);

@@ -58,6 +58,12 @@ function database() {
 async function ensureSchema(db: D1DatabaseLike) {
   if (!schemaReady) {
     schemaReady = db.batch([
+      db.prepare(`CREATE TABLE IF NOT EXISTS workout_entries (
+        id TEXT PRIMARY KEY NOT NULL, owner_id TEXT NOT NULL, date TEXT NOT NULL,
+        title TEXT NOT NULL, minutes INTEGER NOT NULL, exercises_json TEXT NOT NULL,
+        notes TEXT NOT NULL, created_at INTEGER NOT NULL
+      )`),
+      db.prepare("CREATE INDEX IF NOT EXISTS workout_entries_owner_date_idx ON workout_entries (owner_id, date)"),
       db.prepare(`CREATE TABLE IF NOT EXISTS conversations (
         id TEXT PRIMARY KEY NOT NULL,
         device_id TEXT NOT NULL,
