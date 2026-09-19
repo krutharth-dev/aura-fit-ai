@@ -378,7 +378,7 @@ export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: 
             <small>{user ? user.email : "No durable history"}</small>
           </div>
           {user
-            ? <a href={signOutPath} className="account-action" title="Sign out" aria-label="Sign out">↗</a>
+            ? <Link href="/account" className="account-action" title="Account & storage" aria-label="Open account and storage">›</Link>
             : <a href={signInPath} className="account-signin">Sign in / Sign up</a>}
         </div>
       </aside>
