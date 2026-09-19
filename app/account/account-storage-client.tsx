@@ -44,7 +44,26 @@ export default function AccountStorageClient() {
     }
   }
 
-  useEffect(() => { void loadStorage(); }, []);
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/account/storage", {
+      headers: { Accept: "application/json" },
+      cache: "no-store",
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json() as { storage?: StorageSummary; error?: string };
+        if (!response.ok || !data.storage) throw new Error(data.error || "Could not load account storage");
+        if (!controller.signal.aborted) setStorage(data.storage);
+      })
+      .catch((cause) => {
+        if (!controller.signal.aborted) setError(cause instanceof Error ? cause.message : "Could not load account storage");
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+    return () => controller.abort();
+  }, []);
 
   return (
     <section className={styles.storagePanel} aria-labelledby="storage-title">
