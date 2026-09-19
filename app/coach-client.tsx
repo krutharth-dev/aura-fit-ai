@@ -91,10 +91,9 @@ type CoachClientProps = {
   user: AccountUser | null;
   isAdmin: boolean;
   signInPath: string;
-  signOutPath: string;
 };
 
-export default function CoachClient({ user, isAdmin, signInPath, signOutPath }: CoachClientProps) {
+export default function CoachClient({ user, isAdmin, signInPath }: CoachClientProps) {
   const [messages, setMessages] = useState<Message[]>(freshMessages);
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
