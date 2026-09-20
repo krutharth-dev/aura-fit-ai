@@ -50,7 +50,7 @@ const exerciseCountReplies = ["3", "4", "5", "6", "7", "8"];
 const welcomeMessage: Message = {
   id: "welcome",
   role: "assistant",
-  content: "Your fitness workspace is ready. Ask about training, exercise form, progression, recovery, sports nutrition, supplements or workout-related health concerns. What are we working on today?",
+  content: "Your workspace is ready. Ask me anything — I’m especially good at training, exercise form, muscle growth, strength, nutrition, supplements, recovery and gym-related injuries.",
   route: "welcome",
 };
 
@@ -437,7 +437,7 @@ export default function CoachClient({ user, isAdmin, signInPath }: CoachClientPr
 
         <div className="composer-wrap">
           <form className="composer" onSubmit={onSubmit}>
-            <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSubmit(event as unknown as FormEvent); } }} placeholder="Ask about training, nutrition, supplements, recovery or injuries..." rows={1} aria-label="Message AURA FIT" />
+            <textarea value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); onSubmit(event as unknown as FormEvent); } }} placeholder="Ask me anything — training, injuries, nutrition, supplements or a random question..." rows={1} aria-label="Message AURA FIT" />
             <button type="submit" disabled={!input.trim() || loading} aria-label="Send message">↑</button>
           </form>
           <p className="composer-note"><span>✦</span> {user ? "Chats securely sync only to your account" : "Guest chats are not saved"} · Open source · Educational guidance, not diagnosis <i /> <Link href="/privacy">Privacy</Link>{isAdmin && <> · <Link href="/admin">Owner console</Link></>} · Enter to send</p>
