@@ -106,7 +106,7 @@ function parseProfile(message: string, savedProfile?: FitnessProfile | null): { 
   const limitationPattern = /\bnone\b|pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)|pain|injur|limitation|restriction|recent surgery|pregnan/;
   const explicitLimitation = limitationPattern.test(text);
   const limitationSpecified = explicitLimitation || Boolean(savedProfile);
-  const explicitNoLimitation = /pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text);
+  const explicitNoLimitation = /\bnone\b|pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text);
   const currentLimitationText = explicitLimitation && !explicitNoLimitation ? message : "";
   const rawSavedLimitationText = savedProfile?.limitations?.trim() ?? "";
   const savedLimitationText = isNoLimitationText(rawSavedLimitationText) ? "" : rawSavedLimitationText;
