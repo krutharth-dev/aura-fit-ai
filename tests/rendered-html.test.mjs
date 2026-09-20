@@ -148,16 +148,17 @@ test("keeps calculator and urgent safety behavior deterministic", async () => {
   assert.equal(recovery.data.route, "recovery");
 });
 
-test("routes nutrition and health questions through safe specialist fallbacks", async () => {
+test("routes nutrition and gym injury questions through useful specialist fallbacks", async () => {
   const nutrition = await chat("How much protein should I eat for muscle gain?");
   const supplement = await chat("Should I take creatine for the gym?");
-  const injury = await chat("Could my swollen painful ankle be a workout injury?");
+  const injury = await chat("My shoulder hurts after lateral raises. What should I do?");
   assert.equal(nutrition.data.route, "nutrition");
   assert.match(nutrition.data.answer, /1\.6–2\.2 g/);
   assert.equal(supplement.data.route, "nutrition");
   assert.match(supplement.data.answer, /creatine monohydrate/i);
   assert.equal(injury.data.route, "health");
-  assert.match(injury.data.answer, /cannot diagnose|warning signs|assessment/i);
+  assert.match(injury.data.answer, /GYM SHOULDER PAIN/);
+  assert.match(injury.data.answer, /reduce load|neutral-grip/i);
 });
 
 test("answers broad free-text workout questions without requiring a starter button", async () => {
