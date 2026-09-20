@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
+  cardioPreferenceLabels,
+  cardioPreferenceOptions,
   defaultFitnessProfile,
   equipmentLabels,
   equipmentOptions,
@@ -10,8 +12,16 @@ import {
   experienceLevels,
   fitnessGoalLabels,
   fitnessGoals,
+  priorityMuscleLabels,
+  priorityMuscleOptions,
+  trainingStyleLabels,
+  trainingStyleOptions,
+  workoutSplitDescriptions,
+  workoutSplitLabels,
+  workoutSplitOptions,
   type FitnessProfile,
   type FitnessProfileInput,
+  type PriorityMuscle,
 } from "../lib/fitness-profile";
 
 type Message = {
@@ -34,18 +44,21 @@ type ConversationSummary = {
 };
 
 const starterPrompts = [
-  { label: "Build a workout plan", prompt: "Create a 4-day muscle-building plan for an intermediate lifter with full gym access, 60-minute sessions and no limitations.", icon: "01", category: "PROGRAM" },
+  { label: "Build my program", prompt: "Help me build a workout plan.", icon: "01", category: "PROGRAM BUILDER" },
   { label: "Train a body part", prompt: "I want to train a body part today.", icon: "02", category: "WORKOUT" },
-  { label: "Improve my form", prompt: "Explain deadlift form with setup, execution, common mistakes and an easier regression.", icon: "03", category: "TECHNIQUE" },
-  { label: "Plan progression", prompt: "How should I progress my main lifts when I reach the top of my rep range?", icon: "04", category: "PROGRESSION" },
-  { label: "Calculate strength", prompt: "Estimate my 1RM from 100 kg x 5 reps.", icon: "05", category: "CALCULATOR" },
-  { label: "Check recovery", prompt: "I am still sore two days after training. Should I train again today?", icon: "06", category: "RECOVERY" },
-  { label: "Plan my nutrition", prompt: "Help me build a practical sports nutrition plan around my training goal and food preferences.", icon: "07", category: "NUTRITION" },
-  { label: "Ask about an injury", prompt: "Help me understand a workout-related pain, warning signs and what level of assessment may be appropriate.", icon: "08", category: "HEALTH" },
+  { label: "Grow a lagging muscle", prompt: "One of my muscle groups is lagging. Help me bring it up without wrecking recovery.", icon: "03", category: "HYPERTROPHY" },
+  { label: "Review my split", prompt: "Review my current workout split and tell me what you would improve for my goal.", icon: "04", category: "PROGRAM REVIEW" },
+  { label: "Improve my form", prompt: "Explain deadlift form with setup, execution, common mistakes and an easier regression.", icon: "05", category: "TECHNIQUE" },
+  { label: "Break a plateau", prompt: "My main lift has stalled. Help me work out whether volume, intensity, recovery or exercise selection is the problem.", icon: "06", category: "PROGRESSION" },
+  { label: "Check recovery", prompt: "I am still sore two days after training. Should I train again today?", icon: "07", category: "RECOVERY" },
+  { label: "Nutrition & supplements", prompt: "Help me with sports nutrition or supplements for my current training goal.", icon: "08", category: "NUTRITION" },
+  { label: "Gym pain / injury", prompt: "I have a gym-related ache or injury. Help me think through likely causes, training modifications and red flags.", icon: "09", category: "INJURY" },
+  { label: "Strength calculator", prompt: "Estimate my 1RM from 100 kg x 5 reps.", icon: "10", category: "CALCULATOR" },
 ];
 
 const bodyPartReplies = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Arms", "Quads", "Hamstrings", "Glutes", "Legs", "Calves", "Core", "Forearms", "Full body"];
 const exerciseCountReplies = ["3", "4", "5", "6", "7", "8"];
+const splitReplies = ["Auto", "Push / Pull / Legs", "Upper / Lower", "Full body", "Bro split / one muscle per day"];
 
 const welcomeMessage: Message = {
   id: "welcome",
@@ -59,6 +72,7 @@ function suggestedReplies(message: Message, isLatest: boolean) {
   if (!isLatest || message.role !== "assistant") return [];
   if (message.content.includes("Which body part or muscle group would you like to train")) return bodyPartReplies;
   if (message.content.includes("How many exercises would you like in this session") || message.content.includes("Choose between 3 and 8 exercises")) return exerciseCountReplies;
+  if (message.content.includes("Which workout split do you want")) return splitReplies;
   return [];
 }
 function newMessageId() {
@@ -296,8 +310,13 @@ export default function CoachClient({ user, isAdmin, signInPath }: CoachClientPr
       daysPerWeek: profile.daysPerWeek,
       sessionMinutes: profile.sessionMinutes,
       equipment: profile.equipment,
+      splitPreference: profile.splitPreference,
+      trainingStyle: profile.trainingStyle,
+      priorityMuscles: profile.priorityMuscles,
+      cardioPreference: profile.cardioPreference,
       limitations: profile.limitations,
       preferredExercises: profile.preferredExercises,
+      dislikedExercises: profile.dislikedExercises,
     } : defaultFitnessProfile);
     setProfileStep(0);
     setProfileError(null);
