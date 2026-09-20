@@ -58,7 +58,7 @@ const starterPrompts = [
 
 const bodyPartReplies = ["Chest", "Back", "Shoulders", "Biceps", "Triceps", "Arms", "Quads", "Hamstrings", "Glutes", "Legs", "Calves", "Core", "Forearms", "Full body"];
 const exerciseCountReplies = ["3", "4", "5", "6", "7", "8"];
-const splitReplies = ["Auto", "Push / Pull / Legs", "Upper / Lower", "Full body", "Bro split / one muscle per day"];
+const splitReplies = ["Auto / you choose the split", "Push / Pull / Legs", "Upper / Lower", "Full body", "Bro split / one muscle per day"];
 
 const welcomeMessage: Message = {
   id: "welcome",
