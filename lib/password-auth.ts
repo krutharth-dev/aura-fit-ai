@@ -38,7 +38,8 @@ export class AuthError extends Error {
 
 export const SESSION_COOKIE_NAME = "aurafit_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
-const PASSWORD_ITERATIONS = 120_000;
+// Cloudflare Workers WebCrypto rejects PBKDF2 iteration counts above 100,000.
+const PASSWORD_ITERATIONS = 100_000;
 const encoder = new TextEncoder();
 let schemaReady: Promise<void> | null = null;
 

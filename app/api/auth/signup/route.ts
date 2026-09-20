@@ -28,6 +28,13 @@ export async function POST(request: Request) {
       "Cache-Control": "no-store",
     } });
   } catch (error) {
+    if (!(error instanceof AuthError)) {
+      console.error("[auth/signup] unexpected failure", error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      } : { value: String(error) });
+    }
     return errorRedirect(request, error instanceof AuthError ? error.code : "service_unavailable", returnTo);
   }
 }
