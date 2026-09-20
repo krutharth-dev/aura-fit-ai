@@ -87,7 +87,7 @@ function chooseRoute(message: string) {
   const text = message.toLowerCase();
   if (/diet|nutrition|protein|calorie|macro|meal|food|hydration|electrolyte|supplement|creatine|caffeine|vitamin|weight loss|fat loss|bulk/.test(text)) return "nutrition";
   if (/1\s*rm|one.rep.max|calculate|estimate|max from|\d+\s*(?:kg|lb|lbs)?\s*(?:x|for)\s*\d+|plate math|percentage/.test(text)) return "calculator";
-  if (/plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program/.test(text)) return "program";
+  if (/plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program|push\s*[\/-]?\s*pull\s*[\/-]?\s*legs|\bppl\b|upper\s*[\/-]?\s*lower|full[ -]?body|one muscle (?:per|a) day|bro split/.test(text)) return "program";
   if (/symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain|hurt(?:s|ing)?|ache/.test(text)) return "health";
   if (/sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache/.test(text)) return "recovery";
   if (/workout|training|gym|cardio|running|cycling|conditioning|calisthenic|bodyweight|mobility|warm.?up|flexibility|plateau|stuck|progress|volume|frequency|sets|reps|rpe|rir|failure|substitut|alternative|replace|hotel|travel|forearm|biceps?|triceps?|arms?|calves?|chest|back|shoulders?|quads?|hamstrings?|glutes?|abs?|core|bigger|bigger|grow|muscle size/.test(text)) return "training";
@@ -425,7 +425,7 @@ export async function POST(request: Request) {
     }
 
     const localProgram = route === "program" ? deterministicProgramAnswer(message, savedProfile) : null;
-    if (localProgram && (/^I can personalise/.test(localProgram) || /^I won’t guess/.test(localProgram))) {
+    if (localProgram && (/^I can personalise/.test(localProgram) || /^I won’t guess/.test(localProgram) || /^Let’s build it properly/.test(localProgram))) {
       return respond({ answer: localProgram, route, source: "AURA FIT program profile guard", trace: ["Assessed training request", ...programTrace(message, savedProfile)] });
     }
 
