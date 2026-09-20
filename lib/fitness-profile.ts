@@ -1,10 +1,18 @@
 export const fitnessGoals = ["muscle_gain", "fat_loss", "strength", "general_fitness"] as const;
 export const experienceLevels = ["beginner", "intermediate", "advanced"] as const;
 export const equipmentOptions = ["full_gym", "home_dumbbells", "bodyweight"] as const;
+export const workoutSplitOptions = ["auto", "push_pull_legs", "upper_lower", "full_body", "bro_split"] as const;
+export const trainingStyleOptions = ["hypertrophy", "strength", "mixed", "athletic"] as const;
+export const cardioPreferenceOptions = ["none", "light", "moderate", "performance"] as const;
+export const priorityMuscleOptions = ["arms", "shoulders", "chest", "back", "quads", "hamstrings", "glutes", "calves", "forearms", "core"] as const;
 
 export type FitnessGoal = (typeof fitnessGoals)[number];
 export type ExperienceLevel = (typeof experienceLevels)[number];
 export type EquipmentOption = (typeof equipmentOptions)[number];
+export type WorkoutSplit = (typeof workoutSplitOptions)[number];
+export type TrainingStyle = (typeof trainingStyleOptions)[number];
+export type CardioPreference = (typeof cardioPreferenceOptions)[number];
+export type PriorityMuscle = (typeof priorityMuscleOptions)[number];
 
 export type FitnessProfileInput = {
   goal: FitnessGoal;
@@ -12,8 +20,13 @@ export type FitnessProfileInput = {
   daysPerWeek: number;
   sessionMinutes: number;
   equipment: EquipmentOption;
+  splitPreference: WorkoutSplit;
+  trainingStyle: TrainingStyle;
+  priorityMuscles: PriorityMuscle[];
+  cardioPreference: CardioPreference;
   limitations: string;
   preferredExercises: string;
+  dislikedExercises: string;
 };
 
 export type FitnessProfile = FitnessProfileInput & {
@@ -26,8 +39,13 @@ export const defaultFitnessProfile: FitnessProfileInput = {
   daysPerWeek: 3,
   sessionMinutes: 60,
   equipment: "full_gym",
+  splitPreference: "auto",
+  trainingStyle: "hypertrophy",
+  priorityMuscles: [],
+  cardioPreference: "none",
   limitations: "",
   preferredExercises: "",
+  dislikedExercises: "",
 };
 
 export const fitnessGoalLabels: Record<FitnessGoal, string> = {
@@ -49,8 +67,58 @@ export const equipmentLabels: Record<EquipmentOption, string> = {
   bodyweight: "Bodyweight only",
 };
 
+export const workoutSplitLabels: Record<WorkoutSplit, string> = {
+  auto: "Let AURA FIT choose",
+  push_pull_legs: "Push / Pull / Legs",
+  upper_lower: "Upper / Lower",
+  full_body: "Full body",
+  bro_split: "Bro split / one muscle per day",
+};
+
+export const workoutSplitDescriptions: Record<WorkoutSplit, string> = {
+  auto: "Choose the split that best fits your days, goal and priorities.",
+  push_pull_legs: "Push, pull and legs sessions repeated across the week.",
+  upper_lower: "Alternate upper-body and lower-body sessions.",
+  full_body: "Train the whole body each session with rotating emphasis.",
+  bro_split: "Give major muscle groups their own focused training day.",
+};
+
+export const trainingStyleLabels: Record<TrainingStyle, string> = {
+  hypertrophy: "Hypertrophy",
+  strength: "Strength",
+  mixed: "Strength + size",
+  athletic: "Athletic / performance",
+};
+
+export const cardioPreferenceLabels: Record<CardioPreference, string> = {
+  none: "No planned cardio",
+  light: "Light cardio / steps",
+  moderate: "2–3 cardio sessions",
+  performance: "Performance conditioning",
+};
+
+export const priorityMuscleLabels: Record<PriorityMuscle, string> = {
+  arms: "Arms",
+  shoulders: "Shoulders",
+  chest: "Chest",
+  back: "Back",
+  quads: "Quads",
+  hamstrings: "Hamstrings",
+  glutes: "Glutes",
+  calves: "Calves",
+  forearms: "Forearms",
+  core: "Core / abs",
+};
+
 function cleanText(value: unknown, maxLength: number) {
   return typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, maxLength) : "";
+}
+
+function cleanPriorityMuscles(value: unknown): PriorityMuscle[] {
+  if (!Array.isArray(value)) return [];
+  return [...new Set(value.filter((item): item is PriorityMuscle =>
+    typeof item === "string" && priorityMuscleOptions.includes(item as PriorityMuscle),
+  ))].slice(0, 5);
 }
 
 export function validateFitnessProfile(value: unknown): { profile?: FitnessProfileInput; error?: string } {
@@ -59,12 +127,22 @@ export function validateFitnessProfile(value: unknown): { profile?: FitnessProfi
   if (!fitnessGoals.includes(candidate.goal as FitnessGoal)) return { error: "Choose a valid fitness goal" };
   if (!experienceLevels.includes(candidate.experience as ExperienceLevel)) return { error: "Choose a valid experience level" };
   if (!equipmentOptions.includes(candidate.equipment as EquipmentOption)) return { error: "Choose a valid equipment option" };
+
+  const splitPreference = workoutSplitOptions.includes(candidate.splitPreference as WorkoutSplit)
+    ? candidate.splitPreference as WorkoutSplit
+    : "auto";
+  const trainingStyle = trainingStyleOptions.includes(candidate.trainingStyle as TrainingStyle)
+    ? candidate.trainingStyle as TrainingStyle
+    : candidate.goal === "strength" ? "strength" : candidate.goal === "general_fitness" ? "mixed" : "hypertrophy";
+  const cardioPreference = cardioPreferenceOptions.includes(candidate.cardioPreference as CardioPreference)
+    ? candidate.cardioPreference as CardioPreference
+    : "none";
+
   const daysPerWeek = Number(candidate.daysPerWeek);
   const sessionMinutes = Number(candidate.sessionMinutes);
   if (!Number.isInteger(daysPerWeek) || daysPerWeek < 2 || daysPerWeek > 6) return { error: "Training days must be between 2 and 6" };
   if (!Number.isInteger(sessionMinutes) || sessionMinutes < 20 || sessionMinutes > 180) return { error: "Session length must be between 20 and 180 minutes" };
-  const limitations = cleanText(candidate.limitations, 500);
-  const preferredExercises = cleanText(candidate.preferredExercises, 300);
+
   return {
     profile: {
       goal: candidate.goal as FitnessGoal,
@@ -72,8 +150,13 @@ export function validateFitnessProfile(value: unknown): { profile?: FitnessProfi
       daysPerWeek,
       sessionMinutes,
       equipment: candidate.equipment as EquipmentOption,
-      limitations,
-      preferredExercises,
+      splitPreference,
+      trainingStyle,
+      priorityMuscles: cleanPriorityMuscles(candidate.priorityMuscles),
+      cardioPreference,
+      limitations: cleanText(candidate.limitations, 500),
+      preferredExercises: cleanText(candidate.preferredExercises, 300),
+      dislikedExercises: cleanText(candidate.dislikedExercises, 300),
     },
   };
 }
@@ -81,12 +164,21 @@ export function validateFitnessProfile(value: unknown): { profile?: FitnessProfi
 export function fitnessProfileContext(profile: FitnessProfile | FitnessProfileInput) {
   const limitations = profile.limitations || "none reported";
   const preferences = profile.preferredExercises || "no exercise preferences saved";
+  const dislikes = profile.dislikedExercises || "none saved";
+  const priorities = profile.priorityMuscles.length
+    ? profile.priorityMuscles.map((item) => priorityMuscleLabels[item]).join(", ")
+    : "no priority muscles saved";
   return [
     `Goal: ${fitnessGoalLabels[profile.goal]}`,
     `Experience: ${experienceLabels[profile.experience]}`,
     `Schedule: ${profile.daysPerWeek} days per week, ${profile.sessionMinutes} minutes per session`,
     `Equipment: ${equipmentLabels[profile.equipment]}`,
+    `Preferred split: ${workoutSplitLabels[profile.splitPreference]}`,
+    `Training style: ${trainingStyleLabels[profile.trainingStyle]}`,
+    `Priority muscles: ${priorities}`,
+    `Cardio preference: ${cardioPreferenceLabels[profile.cardioPreference]}`,
     `Limitations: ${limitations}`,
     `Preferred exercises: ${preferences}`,
+    `Exercises to avoid/dislike: ${dislikes}`,
   ].join("\n");
 }
