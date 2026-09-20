@@ -163,10 +163,14 @@ test("routes nutrition and health questions through safe specialist fallbacks", 
 test("answers broad free-text workout questions without requiring a starter button", async () => {
   const cardio = await chat("How should I combine running with leg training?");
   const plateau = await chat("My bench press progress is stuck. What should I change?");
+  const forearms = await chat("I want big forearms");
   assert.equal(cardio.data.route, "training");
   assert.match(cardio.data.answer, /Combining cardio and strength/);
   assert.equal(plateau.data.route, "training");
   assert.match(plateau.data.answer, /plateau checklist/i);
+  assert.equal(forearms.data.route, "training");
+  assert.match(forearms.data.answer, /FOREARM GROWTH PLAN/);
+  assert.match(forearms.data.answer, /Hammer curls/);
 });
 
 test("adjusts the latest plan from conversation history", async () => {

@@ -1,6 +1,10 @@
 export function trainingAnswer(message: string) {
   const text = message.toLowerCase();
 
+  if (/forearm/.test(text) && /big|bigger|grow|size|mass|build/.test(text)) {
+    return "FOREARM GROWTH PLAN\n\nTrain forearms 2–4 times per week for roughly 8–14 hard sets total. Use a mix of heavy gripping and direct wrist work:\n\n1. Hammer curls — 3 × 8–12\n2. Reverse EZ-bar curls — 3 × 10–15\n3. Seated wrist curls — 3 × 12–20\n4. Wrist extensions — 2–3 × 15–25\n5. Farmer carries or heavy static holds — 2–4 × 20–40 seconds\n\nPROGRESSION — Keep most sets around 1–2 reps in reserve. Add reps first, then load. For carries/holds, increase time before weight.\n\nTIP — Your forearms also grow from rows, deadlifts, pull-ups and curls, so avoid piling excessive direct work on top of a high-volume pulling program. If forearm size is the priority, put 2 direct movements near the end of 2–3 sessions each week.";
+  }
+
   if (/plateau|stuck|not (?:getting|making).*(?:strong|progress)|progress.*stopped/.test(text)) {
     return "Training plateau checklist\n\n1. VERIFY — Compare at least 3–4 weeks of logged sets, reps, load and effort; one difficult session is not a plateau.\n2. RECOVER — Keep the target lift at 1–3 reps in reserve, reduce unnecessary failure work, and check sleep and food intake.\n3. PROGRESS — Use a rep range such as 3 × 6–8. Add reps until all sets reach 8 with stable form, then add the smallest practical load.\n4. ADJUST — If progress is genuinely stalled, deload for one week or change only one variable: slightly less fatigue, a compatible variation, or 1–2 additional weekly sets.\n\nTell me the exercise, recent working sets, weekly frequency and where the rep fails, and I can narrow this down.\n\nEVIDENCE — ACSM resistance-training guidance: https://acsm.org/resistance-training-guidelines-update-2026/";
   }
