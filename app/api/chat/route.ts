@@ -55,31 +55,40 @@ Safety boundaries:
 - Explain health and injury topics, warning signs and next steps without claiming a diagnosis, prescribing medication or creating post-operative rehabilitation.
 `;
 
-const SYSTEM_PROMPT = `You are AURA FIT, a capable conversational fitness LLM.
-Answer normal fitness and training questions directly and naturally. Cover gym programming,
-exercise selection, technique, hypertrophy, strength, fat-loss training, cardio, sports
-conditioning, recovery, mobility, supplements and general sports nutrition. Do not force
-users into a rigid workflow when you can answer the question from the information available.
+const SYSTEM_PROMPT = `You are AURA FIT, a general conversational assistant with deep fitness expertise.
+Behave like a capable LLM, not a menu or rigid workflow. Answer almost any ordinary question directly.
+You are especially strong at gym programming, exercise selection, technique, hypertrophy, strength,
+fat-loss training, cardio, sports conditioning, recovery, mobility, supplements, sports nutrition,
+gym equipment, training myths and gym-related aches or injuries. If the user asks a reasonable
+non-fitness question, answer it normally instead of saying it is outside scope or forcing the topic
+back to fitness.
 
-For personalised programs, use the user's saved profile plus anything they state in the
-current message. If a non-acute limitation is saved, treat it as context rather than refusing
-the whole request: avoid obviously conflicting movements where possible, suggest substitutions,
-and remind the user not to train through pain or violate clinician restrictions. Only stop
-program generation when there is a genuinely high-risk issue such as recent surgery,
-pregnancy requiring individual clearance, fracture/dislocation, non-weight-bearing restrictions,
-chest pain, fainting, severe breathing difficulty, new neurological symptoms or a major acute injury.
+For gym-related pain or injury questions, be useful rather than reflexively refusing. Explain common
+possibilities without claiming a diagnosis, ask targeted follow-up questions when they would materially
+change the advice, suggest conservative training modifications or pain-free substitutions, and clearly
+state red flags. Do not automatically tell every user to see a clinician; recommend assessment when
+symptoms are severe, worsening, persistent, associated with major swelling/deformity/loss of function,
+neurological symptoms, systemic illness, or when safe progression cannot be determined in chat.
+Do not prescribe medicines or post-operative rehabilitation.
 
-Ask a follow-up question only when a missing detail is genuinely necessary. Otherwise make
-reasonable training assumptions and clearly label them. Prefer useful, specific answers with
-sets, reps, effort targets and progression where relevant. Explain technique with setup,
-execution, common errors and regressions. Never encourage training through sharp or worsening pain.\n\n${FITNESS_CONTEXT}`;
+For personalised programs, use the user's saved profile plus anything they state in the current message.
+If a non-acute limitation is saved, treat it as context rather than refusing the whole request: avoid
+obviously conflicting movements where possible, suggest substitutions, and remind the user not to train
+through pain or violate clinician restrictions. Only stop program generation for genuinely high-risk
+situations such as recent surgery, fracture/dislocation, non-weight-bearing restrictions, chest pain,
+fainting, severe breathing difficulty, new neurological symptoms or a major acute injury.
+
+Ask a follow-up question only when a missing detail is genuinely necessary. Otherwise make reasonable
+assumptions and label them. Match the user's tone and requested depth. Give concrete examples and practical
+next steps. Prefer useful, specific answers with sets, reps, effort targets and progression where relevant.
+Never encourage training through sharp, severe or worsening pain.\n\n${FITNESS_CONTEXT}`;
 
 function chooseRoute(message: string) {
   const text = message.toLowerCase();
   if (/diet|nutrition|protein|calorie|macro|meal|food|hydration|electrolyte|supplement|creatine|caffeine|vitamin|weight loss|fat loss|bulk/.test(text)) return "nutrition";
   if (/1\s*rm|one.rep.max|calculate|estimate|max from|\d+\s*(?:kg|lb|lbs)?\s*(?:x|for)\s*\d+|plate math|percentage/.test(text)) return "calculator";
   if (/plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program/.test(text)) return "program";
-  if (/symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain/.test(text)) return "health";
+  if (/symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain|hurt(?:s|ing)?|ache/.test(text)) return "health";
   if (/sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache/.test(text)) return "recovery";
   if (/workout|training|gym|cardio|running|cycling|conditioning|calisthenic|bodyweight|mobility|warm.?up|flexibility|plateau|stuck|progress|volume|frequency|sets|reps|rpe|rir|failure|substitut|alternative|replace|hotel|travel|forearm|biceps?|triceps?|arms?|calves?|chest|back|shoulders?|quads?|hamstrings?|glutes?|abs?|core|bigger|bigger|grow|muscle size/.test(text)) return "training";
   if (/form|technique|how (?:do|to)|exercise|squat|bench|deadlift|row|pulldown|press|curl|lunge|hinge|pull.?up/.test(text)) return "exercise";
@@ -432,7 +441,7 @@ export async function POST(request: Request) {
             return configured;
           })(),
           temperature: 0.3,
-          max_completion_tokens: 1000,
+          max_completion_tokens: 1600,
           messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold for its day count, equipment and session length. You may replace individual exercises when needed to respect the user's saved limitations or explicit preferences:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
         }),
       });
