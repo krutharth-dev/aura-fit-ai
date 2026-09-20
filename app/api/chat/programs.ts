@@ -10,6 +10,7 @@ type Profile = {
   days: number;
   minutes: number;
   equipment: Equipment;
+  limitations: string;
   preferredExercises: string;
 };
 
@@ -75,6 +76,10 @@ const MOVEMENTS: Record<Equipment, Record<string, string>> = {
   },
 };
 
+function requiresMedicalClearance(value: string) {
+  return /pregnan|recent surgery|post[- ]?op|fracture|dislocat|non[- ]?weight bearing|no weight bearing|doctor.*(?:avoid|restriction|not train)|chest pain|faint|severe.*breath|new.*(?:numb|weak)|major acute injur/i.test(value);
+}
+
 function parseProfile(message: string, savedProfile?: FitnessProfile | null): { profile?: Profile; missing?: string[]; limited?: boolean } {
   const text = message.toLowerCase();
   const goal: Goal | undefined = /muscle|hypertrophy|gain/.test(text) ? "muscle"
@@ -97,10 +102,11 @@ function parseProfile(message: string, savedProfile?: FitnessProfile | null): { 
   const limitationPattern = /\bnone\b|pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)|pain|injur|limitation|restriction|recent surgery|pregnan/;
   const explicitLimitation = limitationPattern.test(text);
   const limitationSpecified = explicitLimitation || Boolean(savedProfile);
-  const reportsLimitation = explicitLimitation
-    ? /pain|injur|limitation|restriction|recent surgery|pregnan/.test(text)
-      && !/pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text)
-    : Boolean(savedProfile?.limitations);
+  const explicitNoLimitation = /pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text);
+  const currentLimitationText = explicitLimitation && !explicitNoLimitation ? message : "";
+  const savedLimitationText = savedProfile?.limitations?.trim() ?? "";
+  const reportsHighRiskLimitation = requiresMedicalClearance(currentLimitationText)
+    || (!explicitNoLimitation && requiresMedicalClearance(savedLimitationText));
   const missing = [
     !goal && "main goal",
     !experience && "experience level",
@@ -110,8 +116,16 @@ function parseProfile(message: string, savedProfile?: FitnessProfile | null): { 
     !limitationSpecified && "pain, injuries or limitations (say “none” if applicable)",
   ].filter((value): value is string => Boolean(value));
   if (missing.length) return { missing };
-  if (reportsLimitation) return { limited: true };
-  return { profile: { goal: goal!, experience: experience!, days, minutes, equipment: equipment!, preferredExercises: savedProfile?.preferredExercises ?? "" } };
+  if (reportsHighRiskLimitation) return { limited: true };
+  return { profile: {
+    goal: goal!,
+    experience: experience!,
+    days,
+    minutes,
+    equipment: equipment!,
+    limitations: explicitNoLimitation ? "" : savedLimitationText,
+    preferredExercises: savedProfile?.preferredExercises ?? "",
+  } };
 }
 
 function prescription(profile: Profile, pattern: string) {
@@ -148,7 +162,10 @@ export function programAnswer(message: string, savedProfile?: FitnessProfile | n
     ? "Place at least one rest day after every 2–3 consecutive sessions."
     : "Keep at least one recovery day between repeated full-body or lower-body sessions.";
   const preferenceLine = profile.preferredExercises ? `\nPREFERENCES — Prioritised where compatible: ${profile.preferredExercises}` : "";
-  return `YOUR ${profile.days}-DAY ${goalLabel(profile.goal)} PLAN\n\nPROFILE — ${profile.experience} · ${profile.minutes} minutes · ${profile.equipment} · no limitations reported${preferenceLine}\n\n${days.join("\n\n")}\n\nEFFORT — Keep most working sets around 2 reps in reserve. ${recovery}\n\nPROGRESSION — Add reps within the range first. When every set reaches the top with stable technique, add the smallest practical load.`;
+  const limitationLine = profile.limitations
+    ? `\nLIMITATIONS — Your saved profile notes: ${profile.limitations}. This is a general training template; skip or substitute anything that conflicts with clinician restrictions or causes pain.`
+    : "\nLIMITATIONS — None reported.";
+  return `YOUR ${profile.days}-DAY ${goalLabel(profile.goal)} PLAN\n\nPROFILE — ${profile.experience} · ${profile.minutes} minutes · ${profile.equipment}${preferenceLine}${limitationLine}\n\n${days.join("\n\n")}\n\nEFFORT — Keep most working sets around 2 reps in reserve. ${recovery}\n\nPROGRESSION — Add reps within the range first. When every set reaches the top with stable technique, add the smallest practical load.`;
 }
 
 export function programTrace(message: string, savedProfile?: FitnessProfile | null) {
