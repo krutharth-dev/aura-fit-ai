@@ -57,8 +57,7 @@ test("renders professional metadata, team details and security headers", async (
   assert.match(html, /Privacy/);
   assert.match(html, /Nutrition &amp; supplements|Nutrition & supplements/);
   assert.match(html, /Gym pain \/ injury/);
-  assert.match(html, /Bro split \/ one muscle per day/);
-  assert.match(html, /Priority muscles/);
+  assert.match(html, /Build my program/);
 });
 
 test("renders an account-synced workspace from trusted ChatGPT identity headers", async () => {
