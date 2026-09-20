@@ -42,6 +42,16 @@ export const fitnessProfiles = sqliteTable("fitness_profiles", {
   updatedAt: integer("updated_at").notNull(),
 }, (table) => [index("fitness_profiles_updated_idx").on(table.updatedAt)]);
 
+export const fitnessProfilePreferences = sqliteTable("fitness_profile_preferences", {
+  ownerId: text("owner_id").primaryKey(),
+  splitPreference: text("split_preference", { enum: ["auto", "push_pull_legs", "upper_lower", "full_body", "bro_split"] }).notNull(),
+  trainingStyle: text("training_style", { enum: ["hypertrophy", "strength", "mixed", "athletic"] }).notNull(),
+  priorityMusclesJson: text("priority_muscles_json").notNull(),
+  cardioPreference: text("cardio_preference", { enum: ["none", "light", "moderate", "performance"] }).notNull(),
+  dislikedExercises: text("disliked_exercises").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 export const usageEvents = sqliteTable("usage_events", {
   id: text("id").primaryKey(),
   eventName: text("event_name").notNull(),
