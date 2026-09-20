@@ -81,7 +81,7 @@ function chooseRoute(message: string) {
   if (/plan|program|routine|split|workout schedule|days? (?:a|per) week|muscle building|hypertrophy program|strength program/.test(text)) return "program";
   if (/symptom|medical|health|diagnos|doctor|physio|fracture|sprain|strain|tendon|ligament|joint|swelling|injur|pain/.test(text)) return "health";
   if (/sore|soreness|recover|recovery|rest day|sleep|fatigue|deload|ache/.test(text)) return "recovery";
-  if (/workout|training|gym|cardio|running|cycling|conditioning|calisthenic|bodyweight|mobility|warm.?up|flexibility|plateau|stuck|progress|volume|frequency|sets|reps|rpe|rir|failure|substitut|alternative|replace|hotel|travel/.test(text)) return "training";
+  if (/workout|training|gym|cardio|running|cycling|conditioning|calisthenic|bodyweight|mobility|warm.?up|flexibility|plateau|stuck|progress|volume|frequency|sets|reps|rpe|rir|failure|substitut|alternative|replace|hotel|travel|forearm|biceps?|triceps?|arms?|calves?|chest|back|shoulders?|quads?|hamstrings?|glutes?|abs?|core|bigger|bigger|grow|muscle size/.test(text)) return "training";
   if (/form|technique|how (?:do|to)|exercise|squat|bench|deadlift|row|pulldown|press|curl|lunge|hinge|pull.?up/.test(text)) return "exercise";
   return "general";
 }
@@ -426,7 +426,11 @@ export async function POST(request: Request) {
         method: "POST",
         headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: process.env.GROQ_MODEL ?? "meta-llama/llama-4-scout-17b-16e-instruct",
+          model: (() => {
+            const configured = process.env.GROQ_MODEL?.trim();
+            if (!configured || configured === "meta-llama/llama-4-scout-17b-16e-instruct") return "openai/gpt-oss-120b";
+            return configured;
+          })(),
           temperature: 0.3,
           max_completion_tokens: 1000,
           messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold for its day count, equipment and session length. You may replace individual exercises when needed to respect the user's saved limitations or explicit preferences:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
@@ -441,6 +445,7 @@ export async function POST(request: Request) {
     }
 
     if (!response.ok) {
+      console.error("[chat/groq] upstream request failed", { status: response.status });
       const eventDb = persistenceDb ?? await historyDatabase().catch(() => null);
       if (eventDb) await recordOperationalError(eventDb, {
         area: "groq", code: `upstream_http_${response.status}`, route, authType: identity.authType,
