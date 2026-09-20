@@ -84,8 +84,13 @@ try {
     daysPerWeek: 4,
     sessionMinutes: 60,
     equipment: "full_gym",
+    splitPreference: "push_pull_legs",
+    trainingStyle: "hypertrophy",
+    priorityMuscles: ["arms", "forearms"],
+    cardioPreference: "moderate",
     limitations: "",
     preferredExercises: "bench press, Romanian deadlift",
+    dislikedExercises: "back squat",
   };
   const guestProfile = await fetch(`${base}/api/profile`, {
     method: "PUT",
@@ -116,14 +121,21 @@ try {
   const synced = await accountDeviceB("/api/conversations");
   assert.equal(synced.scope, "account");
   assert.ok(synced.conversations.some((item) => item.id === accountId));
-  assert.equal((await accountDeviceB("/api/profile")).profile.preferredExercises, savedProfile.preferredExercises);
+  const syncedProfile = (await accountDeviceB("/api/profile")).profile;
+  assert.equal(syncedProfile.preferredExercises, savedProfile.preferredExercises);
+  assert.equal(syncedProfile.splitPreference, "push_pull_legs");
+  assert.deepEqual(syncedProfile.priorityMuscles, ["arms", "forearms"]);
+  assert.equal(syncedProfile.cardioPreference, "moderate");
+  assert.equal(syncedProfile.dislikedExercises, "back squat");
   const loaded = await accountDeviceB(`/api/conversations/${accountId}`);
   assert.equal(loaded.conversation.messages.length, 2);
 
   const profilePlanId = await createConversation(accountDeviceB, "Profile-aware plan");
   const profilePlan = await sendChat(accountDeviceB, profilePlanId, "Build my workout plan using my saved profile.", "profile-aware-plan");
   assert.match(profilePlan.answer, /^YOUR 4-DAY MUSCLE-BUILDING PLAN/);
-  assert.match(profilePlan.answer, /PREFERENCES — Prioritised where compatible/);
+  assert.match(profilePlan.answer, /SPLIT — Push \/ Pull \/ Legs/);
+  assert.match(profilePlan.answer, /PRIORITY MUSCLES — Arms, Forearms/);
+  assert.doesNotMatch(profilePlan.answer, /Back squat/);
   assert.ok(profilePlan.trace.includes("Applied saved fitness profile"));
 
   const simultaneous = await Promise.all([
