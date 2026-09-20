@@ -1,5 +1,5 @@
 import { env } from "cloudflare:workers";
-import type { FitnessProfile, FitnessProfileInput } from "../lib/fitness-profile";
+import { defaultFitnessProfile, type FitnessProfile, type FitnessProfileInput } from "../lib/fitness-profile";
 
 type BindValue = string | number | null;
 type Row = Record<string, unknown>;
@@ -105,6 +105,15 @@ async function ensureSchema(db: D1DatabaseLike) {
         updated_at INTEGER NOT NULL
       )`),
       db.prepare("CREATE INDEX IF NOT EXISTS fitness_profiles_updated_idx ON fitness_profiles (updated_at)"),
+      db.prepare(`CREATE TABLE IF NOT EXISTS fitness_profile_preferences (
+        owner_id TEXT PRIMARY KEY NOT NULL,
+        split_preference TEXT NOT NULL,
+        training_style TEXT NOT NULL,
+        priority_muscles_json TEXT NOT NULL,
+        cardio_preference TEXT NOT NULL,
+        disliked_exercises TEXT NOT NULL,
+        updated_at INTEGER NOT NULL
+      )`),
       db.prepare(`CREATE TABLE IF NOT EXISTS usage_events (
         id TEXT PRIMARY KEY NOT NULL,
         event_name TEXT NOT NULL,
@@ -207,63 +216,114 @@ export async function consumeRateLimit(db: D1DatabaseLike, bucketKey: string, li
 }
 
 export async function loadFitnessProfile(db: D1DatabaseLike, ownerId: string): Promise<FitnessProfile | null> {
-  const row = await db.prepare(`SELECT goal, experience, days_per_week, session_minutes,
-      equipment, limitations, preferred_exercises, updated_at
-    FROM fitness_profiles WHERE owner_id = ?`).bind(ownerId).first<{
-      goal: FitnessProfile["goal"];
-      experience: FitnessProfile["experience"];
-      days_per_week: number;
-      session_minutes: number;
-      equipment: FitnessProfile["equipment"];
-      limitations: string;
-      preferred_exercises: string;
-      updated_at: number;
-    }>();
+  const [row, preferences] = await Promise.all([
+    db.prepare(`SELECT goal, experience, days_per_week, session_minutes,
+        equipment, limitations, preferred_exercises, updated_at
+      FROM fitness_profiles WHERE owner_id = ?`).bind(ownerId).first<{
+        goal: FitnessProfile["goal"];
+        experience: FitnessProfile["experience"];
+        days_per_week: number;
+        session_minutes: number;
+        equipment: FitnessProfile["equipment"];
+        limitations: string;
+        preferred_exercises: string;
+        updated_at: number;
+      }>(),
+    db.prepare(`SELECT split_preference, training_style, priority_muscles_json,
+        cardio_preference, disliked_exercises, updated_at
+      FROM fitness_profile_preferences WHERE owner_id = ?`).bind(ownerId).first<{
+        split_preference: FitnessProfile["splitPreference"];
+        training_style: FitnessProfile["trainingStyle"];
+        priority_muscles_json: string;
+        cardio_preference: FitnessProfile["cardioPreference"];
+        disliked_exercises: string;
+        updated_at: number;
+      }>(),
+  ]);
   if (!row) return null;
+
+  let priorityMuscles = defaultFitnessProfile.priorityMuscles;
+  try {
+    const parsed = preferences?.priority_muscles_json ? JSON.parse(preferences.priority_muscles_json) : [];
+    if (Array.isArray(parsed)) priorityMuscles = parsed as FitnessProfile["priorityMuscles"];
+  } catch {
+    priorityMuscles = [];
+  }
+
   return {
     goal: row.goal,
     experience: row.experience,
     daysPerWeek: Number(row.days_per_week),
     sessionMinutes: Number(row.session_minutes),
     equipment: row.equipment,
+    splitPreference: preferences?.split_preference ?? defaultFitnessProfile.splitPreference,
+    trainingStyle: preferences?.training_style ?? (row.goal === "strength" ? "strength" : defaultFitnessProfile.trainingStyle),
+    priorityMuscles,
+    cardioPreference: preferences?.cardio_preference ?? defaultFitnessProfile.cardioPreference,
     limitations: row.limitations,
     preferredExercises: row.preferred_exercises,
-    updatedAt: Number(row.updated_at),
+    dislikedExercises: preferences?.disliked_exercises ?? "",
+    updatedAt: Math.max(Number(row.updated_at), Number(preferences?.updated_at ?? 0)),
   };
 }
 
 export async function saveFitnessProfile(db: D1DatabaseLike, ownerId: string, profile: FitnessProfileInput): Promise<FitnessProfile> {
   const now = Date.now();
-  await db.prepare(`INSERT INTO fitness_profiles (
-      owner_id, goal, experience, days_per_week, session_minutes, equipment,
-      limitations, preferred_exercises, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(owner_id) DO UPDATE SET
-      goal = excluded.goal,
-      experience = excluded.experience,
-      days_per_week = excluded.days_per_week,
-      session_minutes = excluded.session_minutes,
-      equipment = excluded.equipment,
-      limitations = excluded.limitations,
-      preferred_exercises = excluded.preferred_exercises,
-      updated_at = excluded.updated_at`)
-    .bind(
-      ownerId,
-      profile.goal,
-      profile.experience,
-      profile.daysPerWeek,
-      profile.sessionMinutes,
-      profile.equipment,
-      profile.limitations,
-      profile.preferredExercises,
-      now,
-      now,
-    ).run();
+  await db.batch([
+    db.prepare(`INSERT INTO fitness_profiles (
+        owner_id, goal, experience, days_per_week, session_minutes, equipment,
+        limitations, preferred_exercises, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(owner_id) DO UPDATE SET
+        goal = excluded.goal,
+        experience = excluded.experience,
+        days_per_week = excluded.days_per_week,
+        session_minutes = excluded.session_minutes,
+        equipment = excluded.equipment,
+        limitations = excluded.limitations,
+        preferred_exercises = excluded.preferred_exercises,
+        updated_at = excluded.updated_at`)
+      .bind(
+        ownerId,
+        profile.goal,
+        profile.experience,
+        profile.daysPerWeek,
+        profile.sessionMinutes,
+        profile.equipment,
+        profile.limitations,
+        profile.preferredExercises,
+        now,
+        now,
+      ),
+    db.prepare(`INSERT INTO fitness_profile_preferences (
+        owner_id, split_preference, training_style, priority_muscles_json,
+        cardio_preference, disliked_exercises, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(owner_id) DO UPDATE SET
+        split_preference = excluded.split_preference,
+        training_style = excluded.training_style,
+        priority_muscles_json = excluded.priority_muscles_json,
+        cardio_preference = excluded.cardio_preference,
+        disliked_exercises = excluded.disliked_exercises,
+        updated_at = excluded.updated_at`)
+      .bind(
+        ownerId,
+        profile.splitPreference,
+        profile.trainingStyle,
+        JSON.stringify(profile.priorityMuscles),
+        profile.cardioPreference,
+        profile.dislikedExercises,
+        now,
+      ),
+  ]);
   return { ...profile, updatedAt: now };
 }
 
 export async function deleteFitnessProfile(db: D1DatabaseLike, ownerId: string) {
-  await db.prepare("DELETE FROM fitness_profiles WHERE owner_id = ?").bind(ownerId).run();
+  await db.batch([
+    db.prepare("DELETE FROM fitness_profile_preferences WHERE owner_id = ?").bind(ownerId),
+    db.prepare("DELETE FROM fitness_profiles WHERE owner_id = ?").bind(ownerId),
+  ]);
 }
 
 export function titleFromMessage(message: string) {
