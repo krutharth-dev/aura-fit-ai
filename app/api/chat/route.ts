@@ -442,7 +442,7 @@ export async function POST(request: Request) {
           })(),
           temperature: 0.3,
           max_completion_tokens: 1600,
-          messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold for its day count, equipment and session length. You may replace individual exercises when needed to respect the user's saved limitations or explicit preferences:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
+          messages: [{ role: "system", content: `${route === "program" && localProgram ? `${SYSTEM_PROMPT}\n\nUse this validated scaffold as the program specification. Preserve its day count, workout split, training style, priority muscles, equipment, session length and cardio intent. You may replace individual exercises when needed to respect the user's saved limitations or explicit preferences:\n${localProgram}` : SYSTEM_PROMPT}${savedProfileContext ? `\n\nThe user has saved this fitness profile. Apply it unless their current message explicitly overrides a field:\n${savedProfileContext}` : ""}` }, ...history],
         }),
       });
     } catch {
