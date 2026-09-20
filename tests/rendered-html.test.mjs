@@ -55,8 +55,9 @@ test("renders professional metadata, team details and security headers", async (
   assert.match(html, /Set up profile/);
   assert.match(html, /Guest chats are not saved/);
   assert.match(html, /Privacy/);
-  assert.match(html, /Plan my nutrition/);
-  assert.match(html, /Ask about an injury/);
+  assert.match(html, /Nutrition &amp; supplements|Nutrition & supplements/);
+  assert.match(html, /Gym pain \/ injury/);
+  assert.match(html, /Build my program/);
 });
 
 test("renders an account-synced workspace from trusted ChatGPT identity headers", async () => {
@@ -95,6 +96,15 @@ test("builds the exact requested 2-day and 6-day plans", async () => {
   assert.ok(two.data.trace.some((step) => step.includes("2 sessions")));
 });
 
+test("honours PPL, body-part priorities and hypertrophy preferences", async () => {
+  const { data } = await chat("Create a 6-day PPL muscle-building plan for an intermediate lifter with full gym access, 75-minute sessions, prioritize arms and forearms, no limitations.");
+  assert.match(data.answer, /^YOUR 6-DAY MUSCLE-BUILDING PLAN/);
+  assert.match(data.answer, /SPLIT — Push \/ Pull \/ Legs/);
+  assert.match(data.answer, /PRIORITY MUSCLES — Arms, Forearms/);
+  assert.match(data.answer, /★ priority/);
+  assert.equal((data.answer.match(/^DAY \d+ —/gm) ?? []).length, 6);
+});
+
 test("respects home equipment and session duration", async () => {
   const { data } = await chat("Create a 3-day general fitness plan for a beginner with dumbbells at home, 35-minute sessions and no injuries.");
   assert.match(data.answer, /^YOUR 3-DAY FITNESS PLAN/);
@@ -103,9 +113,12 @@ test("respects home equipment and session duration", async () => {
   assert.equal((data.answer.split("DAY 2")[0].match(/^\d+\./gm) ?? []).length, 4);
 });
 
-test("requests missing profile data and refuses unsafe limitation guessing", async () => {
-  const incomplete = await chat("Make me a workout plan");
+test("guides plan building through split choice, then requests missing essentials", async () => {
+  const guided = await chat("Make me a workout plan");
+  const incomplete = await chat("Push / Pull / Legs");
   const limitation = await chat("Create a 4-day muscle plan for an intermediate lifter, 60 minutes, full gym, after recent surgery.");
+  assert.match(guided.data.answer, /Which workout split do you want/);
+  assert.match(guided.data.answer, /BRO SPLIT \/ ONE MUSCLE PER DAY/);
   assert.match(incomplete.data.answer, /I can personalise/);
   assert.match(limitation.data.answer, /I won’t guess/);
   assert.ok(limitation.data.trace.some((step) => step.includes("Stopped")));
@@ -210,6 +223,7 @@ test("packages the durable multi-chat schema and fails safely without D1", async
   assert.match(migration, /CREATE TABLE `conversations`/);
   assert.match(migration, /CREATE TABLE `messages`/);
   assert.match(migration, /CREATE TABLE `fitness_profiles`/);
+  assert.match(migration, /CREATE TABLE `fitness_profile_preferences`/);
   assert.match(migration, /CREATE TABLE `usage_events`/);
   assert.match(migration, /CREATE TABLE `error_events`/);
   assert.match(migration, /DELETE FROM `conversations` WHERE `device_id` LIKE 'device_%'/);
