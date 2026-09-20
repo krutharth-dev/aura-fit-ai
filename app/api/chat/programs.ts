@@ -76,6 +76,10 @@ const MOVEMENTS: Record<Equipment, Record<string, string>> = {
   },
 };
 
+function isNoLimitationText(value: string) {
+  return /^(?:none|nil|n\/a|no (?:pain|injur(?:y|ies)|limitations?|restrictions?))\.?$/i.test(value.trim());
+}
+
 function requiresMedicalClearance(value: string) {
   return /pregnan|recent surgery|post[- ]?op|fracture|dislocat|non[- ]?weight bearing|no weight bearing|doctor.*(?:avoid|restriction|not train)|chest pain|faint|severe.*breath|new.*(?:numb|weak)|major acute injur/i.test(value);
 }
@@ -104,7 +108,8 @@ function parseProfile(message: string, savedProfile?: FitnessProfile | null): { 
   const limitationSpecified = explicitLimitation || Boolean(savedProfile);
   const explicitNoLimitation = /pain[- ]free|no (?:pain|injur(?:y|ies)|limitations?|restrictions?)/.test(text);
   const currentLimitationText = explicitLimitation && !explicitNoLimitation ? message : "";
-  const savedLimitationText = savedProfile?.limitations?.trim() ?? "";
+  const rawSavedLimitationText = savedProfile?.limitations?.trim() ?? "";
+  const savedLimitationText = isNoLimitationText(rawSavedLimitationText) ? "" : rawSavedLimitationText;
   const reportsHighRiskLimitation = requiresMedicalClearance(currentLimitationText)
     || (!explicitNoLimitation && requiresMedicalClearance(savedLimitationText));
   const missing = [
@@ -123,7 +128,9 @@ function parseProfile(message: string, savedProfile?: FitnessProfile | null): { 
     days,
     minutes,
     equipment: equipment!,
-    limitations: explicitNoLimitation ? "" : savedLimitationText,
+    limitations: explicitNoLimitation
+      ? ""
+      : savedLimitationText || (currentLimitationText ? "Current request mentions pain, injury or a training limitation" : ""),
     preferredExercises: savedProfile?.preferredExercises ?? "",
   } };
 }
