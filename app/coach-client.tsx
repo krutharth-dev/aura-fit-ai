@@ -47,7 +47,7 @@ const starterPrompts = [
   { label: "Build my program", prompt: "Help me build a workout plan.", icon: "01", category: "PROGRAM BUILDER" },
   { label: "Train a body part", prompt: "I want to train a body part today.", icon: "02", category: "WORKOUT" },
   { label: "Grow a lagging muscle", prompt: "One of my muscle groups is lagging. Help me bring it up without wrecking recovery.", icon: "03", category: "HYPERTROPHY" },
-  { label: "Review my split", prompt: "Review my current workout split and tell me what you would improve for my goal.", icon: "04", category: "PROGRAM REVIEW" },
+  { label: "Review my split", prompt: "I want you to review my weekly training. Ask me to paste my current sessions, then tell me what you would improve.", icon: "04", category: "PROGRAM REVIEW" },
   { label: "Improve my form", prompt: "Explain deadlift form with setup, execution, common mistakes and an easier regression.", icon: "05", category: "TECHNIQUE" },
   { label: "Break a plateau", prompt: "My main lift has stalled. Help me work out whether volume, intensity, recovery or exercise selection is the problem.", icon: "06", category: "PROGRESSION" },
   { label: "Check recovery", prompt: "I am still sore two days after training. Should I train again today?", icon: "07", category: "RECOVERY" },
