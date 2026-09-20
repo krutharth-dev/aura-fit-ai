@@ -341,11 +341,12 @@ function cleanExerciseList(value: string) {
   return value.toLowerCase().split(/[,;|]/).map((item) => item.trim()).filter(Boolean);
 }
 
-function movementForPattern(equipment: Equipment, pattern: string, preferred: string[], disliked: string[]) {
+function movementForPattern(equipment: Equipment, pattern: string, preferred: string[], disliked: string[], occurrence = 0) {
   const options = MOVEMENT_OPTIONS[equipment][pattern] ?? [pattern];
   const allowed = options.filter((movement) => !disliked.some((item) => movement.toLowerCase().includes(item)));
   const candidates = allowed.length ? allowed : options;
-  return candidates.find((movement) => preferred.some((item) => movement.toLowerCase().includes(item))) ?? candidates[0];
+  const preferredMovement = candidates.find((movement) => preferred.some((item) => movement.toLowerCase().includes(item)));
+  return preferredMovement ?? candidates[occurrence % candidates.length];
 }
 
 function patternIsPriority(pattern: string, priorities: PriorityMuscle[]) {
@@ -400,10 +401,15 @@ export function programAnswer(message: string, savedProfile?: FitnessProfile | n
   const disliked = cleanExerciseList(profile.dislikedExercises);
 
   const days = sessions.map((session, dayIndex) => {
-    const selected = session.patterns.map((pattern) => ({
-      pattern,
-      movement: movementForPattern(profile.equipment, pattern, preferred, disliked),
-    }));
+    const occurrences = new Map<string, number>();
+    const selected = session.patterns.map((pattern) => {
+      const occurrence = occurrences.get(pattern) ?? 0;
+      occurrences.set(pattern, occurrence + 1);
+      return {
+        pattern,
+        movement: movementForPattern(profile.equipment, pattern, preferred, disliked, occurrence),
+      };
+    });
     selected.sort((a, b) => Number(patternIsPriority(b.pattern, profile.priorityMuscles)) - Number(patternIsPriority(a.pattern, profile.priorityMuscles)));
     const exercises = selected.slice(0, exerciseLimit).map(({ pattern, movement }, index) =>
       `${index + 1}. ${movement} — ${prescription(profile, pattern)}${patternIsPriority(pattern, profile.priorityMuscles) ? "  ★ priority" : ""}`,
