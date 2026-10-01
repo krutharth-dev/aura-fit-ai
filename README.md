@@ -27,6 +27,26 @@
 
 For a longer presentation, see the [demo walkthrough](DEMO_GUIDE.md). The [architecture](#public-web-architecture), [local setup](#local-setup), and [quality gates](#quality-gates) are documented below.
 
+### Feature previews
+
+These are **illustrative previews** created from the documented UI and feature set, using fictional demo data. They are not screenshots of a running deployment.
+
+[![Concept preview of AURA FIT's AI coach interface](docs/media/coach-preview.svg)](https://aura-fit-ai.krutharth-dev.workers.dev/)
+
+<details>
+<summary><strong>Explore the example workout plan and training journal</strong></summary>
+<br/>
+
+**Example structured workout plan**
+
+![Illustrative four-day AURA FIT training plan with fictional example exercises](docs/media/workout-plan-preview.svg)
+
+**Training journal with fictional sample entries**
+
+![Illustrative AURA FIT training journal dashboard using sample data](docs/media/training-journal-preview.svg)
+
+</details>
+
 > Educational guidance only. AURA FIT can explain medical and nutrition topics but does not diagnose injuries, prescribe medication or rehabilitation, create medical diets, or replace a doctor, physiotherapist, accredited dietitian or qualified in-person coach.
 
 ## Training journal
