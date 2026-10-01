@@ -1,8 +1,51 @@
 # AURA FIT — AI Training Coach
 
 [![CI](https://github.com/krutharth-dev/aura-fit-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/krutharth-dev/aura-fit-ai/actions/workflows/ci.yml)
+[![MIT License](https://img.shields.io/badge/License-MIT-238636?style=flat-square)](LICENSE)
+[![Cloudflare Workers](https://img.shields.io/badge/Hosted-Cloudflare%20Workers-F38020?style=flat-square)](https://aura-fit-ai.krutharth-dev.workers.dev/)
 
-AURA FIT is an MIT-licensed, safety-aware AI fitness and wellness coach. It creates personalised workout programs, answers training questions, explains exercise technique, provides goal-aware sports-nutrition and supplement education, helps users understand workout-related health concerns, estimates training numbers and exposes observable specialist routing.
+**A safety-aware AI fitness coach with personalised training tools, account-based history and a workout journal.**
+
+[**Try the hosted application ↗**](https://aura-fit-ai.krutharth-dev.workers.dev/) · [**Follow the 3-minute demo**](DEMO_GUIDE.md) · [**Browse the source**](https://github.com/krutharth-dev/aura-fit-ai)
+
+### What you can explore
+
+| Experience | What it demonstrates |
+| :-- | :-- |
+| Guided training | Build workouts and exact 2–6-day programs around goals, experience, session time and equipment. |
+| Training journal | Save exercises, sets, reps, weight, notes and session summaries after signing in. |
+| Coaching routes | Ask about technique, recovery, training questions, sports nutrition and supplements. |
+| Transparent outputs | Inspect the selected specialist route, source and execution trace. |
+| Safety boundaries | Urgent symptoms take priority; health content remains educational and non-diagnostic. |
+
+### See it in 60 seconds
+
+1. Open the [hosted app](https://aura-fit-ai.krutharth-dev.workers.dev/) as a guest, or create an account to explore saved conversations and the journal.
+2. Select **Train a body part** → **Chest** → **5**, then inspect the route and trace.
+3. Ask `Estimate my 1RM from 100 kg × 5 reps.` to try the deterministic calculator.
+4. Open **Training** to see the journal. Saving entries requires signing in.
+
+For a longer presentation, see the [demo walkthrough](DEMO_GUIDE.md). The [architecture](#public-web-architecture), [local setup](#local-setup), and [quality gates](#quality-gates) are documented below.
+
+### Feature previews
+
+These are **illustrative previews** created from the documented UI and feature set, using fictional demo data. They are not screenshots of a running deployment.
+
+[![Concept preview of AURA FIT's AI coach interface](docs/media/coach-preview.svg)](https://aura-fit-ai.krutharth-dev.workers.dev/)
+
+<details>
+<summary><strong>Explore the example workout plan and training journal</strong></summary>
+<br/>
+
+**Example structured workout plan**
+
+![Illustrative four-day AURA FIT training plan with fictional example exercises](docs/media/workout-plan-preview.svg)
+
+**Training journal with fictional sample entries**
+
+![Illustrative AURA FIT training journal dashboard using sample data](docs/media/training-journal-preview.svg)
+
+</details>
 
 > Educational guidance only. AURA FIT can explain medical and nutrition topics but does not diagnose injuries, prescribe medication or rehabilitation, create medical diets, or replace a doctor, physiotherapist, accredited dietitian or qualified in-person coach.
 
